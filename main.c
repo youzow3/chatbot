@@ -10,6 +10,7 @@ enum
 {
 	ARGS_LM_MODULE,
 	ARGS_LM_MODEL,
+	ARGS_LM_MODULE_PARAM,
 	ARGS_NULL
 };
 
@@ -27,6 +28,7 @@ struct _Args
 {
 	char *lm_module;
 	char *lm_model;
+	char *lm_module_param;
 };
 
 Args *args_new(int *argc, char ***argv, GError **error)
@@ -42,7 +44,8 @@ Args *args_new(int *argc, char ***argv, GError **error)
 
 	args = g_new0(Args, 1);
 	entries[ARGS_LM_MODULE] = (GOptionEntry){"lm_module", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME, &args->lm_module, "LM-Module to use", "module"};
-	entries[ARGS_LM_MODEL] = (GOptionEntry){"lm_model", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &args->lm_model, "Model to use, refer to LM-Module docs you use", "name"};
+	entries[ARGS_LM_MODEL] = (GOptionEntry){"lm_model", 0, G_OPTION_FLAG_DEPRECATED, G_OPTION_ARG_STRING, &args->lm_model, "Model to use, refer to LM-Module docs you use", "name"};
+	entries[ARGS_LM_MODULE_PARAM] = (GOptionEntry){"lm_module_param", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &args->lm_module_param, "Parameters for LMModule", "param"};
 	entries[ARGS_NULL] = (GOptionEntry)G_OPTION_ENTRY_NULL;
 
 	context = g_option_context_new(NULL);
@@ -64,6 +67,7 @@ void args_free(Args *args)
 {
 	g_return_if_fail(args);
 
+	g_free(args->lm_module_param);
 	g_free(args->lm_model);
 	g_free(args->lm_module);
 	g_free(args);
@@ -160,6 +164,7 @@ int main(int argc, char **argv)
 		goto on_error;
 
 	lm_module_param.model = args->lm_model;
+	lm_module_param.param_string = args->lm_module_param;
 	lm_module = module_new(args->lm_module, &lm_module_param, &error);
 	if (lm_module == NULL)
 		goto on_error;

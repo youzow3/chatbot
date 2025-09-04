@@ -16,6 +16,7 @@ typedef void (*LMModuleCallback)(char *token_str);
 struct _LMModuleParam
 {
 	char *model;
+	char *param_string;
 };
 
 /*
