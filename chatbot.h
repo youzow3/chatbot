@@ -11,7 +11,7 @@ typedef enum _LMModuleType
 typedef struct _LMModuleParam LMModuleParam;
 typedef struct _LMModule LMModule;
 
-typedef void (*LMModuleCallback)(char *token_str);
+typedef void (*LMModuleCallback)(char *token_str, gpointer user_data);
 
 struct _LMModuleParam
 {
@@ -46,12 +46,12 @@ struct _LMModule
 	 * generate string from given string. This should follow chat template
 	 * callback should be called everytime a token is generated.
 	 */
-	GString *(*inference)(LMModule *module, GString *str, LMModuleCallback callback, GError **error);
+	GString *(*inference)(LMModule *module, GString *str, LMModuleCallback callback, gpointer user_data, GError **error);
 	/*
 	 * same as inference(), but the model should "think"
 	 * return value should be a generated text without model's thought
 	 * if thought is not NULL, GString will be allocated, and put model's thought
 	 * if the model didn't think, think_callback won't be called, and thought won't be modified
 	 */
-	GString *(*inference_with_think)(LMModule *module, GString *str, GString **thought, LMModuleCallback think_callback, LMModuleCallback callback, GError **error);
+	GString *(*inference_with_think)(LMModule *module, GString *str, GString **thought, LMModuleCallback think_callback, LMModuleCallback callback, gpointer user_data, GError **error);
 };
