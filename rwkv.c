@@ -35,7 +35,6 @@ typedef struct _Args
 {
   gchar *model;
   gchar *tokenizer;
-  gchar *system_prompt;
   gchar *state_file;
 } Args;
 
@@ -45,7 +44,6 @@ args_new (const gchar *param)
 {
   Args *args;
   gchar **kv_array;
-  GError *error = NULL;
 
   args = g_new0 (Args, 1);
 
@@ -72,19 +70,6 @@ args_new (const gchar *param)
         args->model = g_strdup (v);
       if (g_str_equal (k, "tokenizer") && (args->tokenizer == NULL))
         args->tokenizer = g_strdup (v);
-      if (g_str_equal (k, "system_prompt") && (args->system_prompt == NULL))
-        args->system_prompt = g_strdup (v);
-      if (g_str_equal (k, "system_prompt_file")
-          && (args->system_prompt == NULL))
-        {
-          if (!g_file_get_contents (v, &args->system_prompt, NULL, &error))
-            {
-              g_warning (
-                  "Failed to read file '%s'. This cause no system prompt.\n%s",
-                  v, error->message);
-              g_clear_pointer (&error, g_error_free);
-            }
-        }
       if (g_str_equal (k, "state_file") && (args->state_file == NULL))
         args->state_file = g_strdup (v);
 
@@ -105,7 +90,6 @@ on_error:
              "tokenizer=[path to the txt file]\n");
 
   g_free (args->state_file);
-  g_free (args->system_prompt);
   g_free (args->tokenizer);
   g_free (args->model);
   g_free (args);
@@ -118,7 +102,6 @@ args_free (Args *args)
   g_return_if_fail (args);
 
   g_free (args->state_file);
-  g_free (args->system_prompt);
   g_free (args->tokenizer);
   g_free (args->model);
   g_free (args);
@@ -426,6 +409,9 @@ inference (LMModule *module, GString *str, LMModuleCallback callback,
       token = mm_value_get_data (rmodule->out_idx, error);
       if (token == NULL)
         goto on_error;
+
+      if (*token == 0)
+        break;
       tk_str = rwkv_tokenizer_detokenize (&rmodule->tokenizer, token, 1);
       if (tk_str == NULL)
         goto on_error;
@@ -462,7 +448,7 @@ inference_with_think_callback (char *str, gpointer data)
   if (think_data->generated)
     {
       if (think_data->callback)
-	      think_data->callback (str, think_data->user_data);
+        think_data->callback (str, think_data->user_data);
       g_string_append (think_data->generated, str);
     }
   else
@@ -478,10 +464,10 @@ inference_with_think_callback (char *str, gpointer data)
           g_string_strip (think_data->thought);
         }
       else
-      {
-	if (think_data->think_callback)
-		think_data->think_callback (str, think_data->user_data);
-      }
+        {
+          if (think_data->think_callback)
+            think_data->think_callback (str, think_data->user_data);
+        }
     }
 }
 
@@ -508,7 +494,7 @@ inference_with_think (LMModule *module, GString *str, GString **thought,
 }
 
 G_MODULE_EXPORT LMModule *
-init (LMModuleParam *param, GError **error)
+lm_module_init (LMModuleParam *param, GError **error)
 {
   LMRealModule *module;
   Args *args;
@@ -521,8 +507,10 @@ init (LMModuleParam *param, GError **error)
 
   module = g_new (LMRealModule, 1);
 
+  module->public.type = LM_MODULE_TYPE_BASE;
   module->public.dispose = dispose;
   module->public.chat_template = chat_template;
+  module->public.prompt = prompt;
   module->public.inference = inference;
   module->public.inference_with_think = inference_with_think;
 
@@ -582,15 +570,6 @@ init (LMModuleParam *param, GError **error)
         g_warning ("Failed to load state\n");
       else
         has_state = TRUE;
-    }
-
-  if (args->system_prompt && !has_state)
-    {
-      GString *system_prompt
-          = chat_template ("System", args->system_prompt, NULL);
-      if (!prompt ((LMModule *)module, system_prompt, error))
-        goto on_error;
-      g_string_free (system_prompt, TRUE);
     }
 
   mm_model_options_unref (options);
