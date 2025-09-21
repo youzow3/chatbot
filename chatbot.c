@@ -43,6 +43,7 @@ on_error:
 void
 lm_module_data_free (LMModuleData *module_data)
 {
+  g_return_if_fail(module_data);
   module_data->lm->dispose (module_data->lm);
   g_module_close (module_data->module);
   g_free (module_data);
@@ -89,6 +90,7 @@ on_error:
 void
 et_module_data_free (ETModuleData *module_data)
 {
+  g_return_if_fail(module_data);
   module_data->et->dispose (module_data->et);
   g_module_close (module_data->module);
   g_free (module_data);

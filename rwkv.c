@@ -36,6 +36,7 @@ typedef struct _Args
   gchar *model;
   gchar *tokenizer;
   gchar *state_file;
+  gchar *provider;
 } Args;
 
 /* Parse key0=value0:key1=value1... style arguments */
@@ -72,6 +73,8 @@ args_new (const gchar *param)
         args->tokenizer = g_strdup (v);
       if (g_str_equal (k, "state_file") && (args->state_file == NULL))
         args->state_file = g_strdup (v);
+      if (g_str_equal (k, "provider") && (args->provider == NULL))
+        args->provider = g_strdup (v);
 
       g_strfreev (kv);
     }
@@ -89,6 +92,7 @@ on_error:
              "model=[path to the onnx file]\n"
              "tokenizer=[path to the txt file]\n");
 
+  g_free (args->provider);
   g_free (args->state_file);
   g_free (args->tokenizer);
   g_free (args->model);
@@ -101,6 +105,7 @@ args_free (Args *args)
 {
   g_return_if_fail (args);
 
+  g_free (args->provider);
   g_free (args->state_file);
   g_free (args->tokenizer);
   g_free (args->model);
@@ -498,6 +503,7 @@ lm_module_init (LMModuleParam *param, GError **error)
 {
   LMRealModule *module;
   Args *args;
+  MMProvider *provider = NULL;
   MMModelOptions *options = NULL;
   bool has_state = FALSE;
 
@@ -521,9 +527,45 @@ lm_module_init (LMModuleParam *param, GError **error)
   if (module->context == NULL)
     goto on_error;
 
+  if (args->provider != NULL)
+    {
+      GStrv available
+          = mm_context_get_available_execution_provider (module->context);
+      const char *provider_name = NULL;
+
+      if (g_str_equal (args->provider, "auto"))
+        provider_name = available[0];
+      else if (!g_strv_contains ((const gchar **)available, args->provider))
+        g_warning ("Execution provider name \"%s\" is invalid.\n",
+                   args->provider);
+      else
+        provider_name = args->provider;
+
+      if (provider_name != NULL)
+        {
+          provider = mm_provider_new (
+              module->context, mm_provider_name_from_str (provider_name),
+              error);
+          if (provider == NULL)
+	  {
+	    g_strfreev(available);
+            goto on_error;
+	  }
+          g_info ("Using execution provider: \"%s\"\n", provider_name);
+        }
+
+      g_strfreev (available);
+    }
+
   options = mm_model_options_new (module->context, error);
   if (options == NULL)
     goto on_error;
+
+  if (provider)
+    {
+      if (!mm_model_options_append_provider (options, provider, error))
+        goto on_error;
+    }
 
   module->model = mm_model_new (options, args->model, error);
   if (module->model == NULL)
@@ -572,11 +614,15 @@ lm_module_init (LMModuleParam *param, GError **error)
         has_state = TRUE;
     }
 
+  if (provider)
+    mm_provider_unref (provider);
   mm_model_options_unref (options);
   args_free (args);
 
   return (LMModule *)module;
 on_error:
+  if (provider)
+    mm_provider_unref (provider);
   mm_model_options_unref (options);
 
   mm_file_unref (module->state_file);
