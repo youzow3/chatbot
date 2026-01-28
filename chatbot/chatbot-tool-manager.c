@@ -16,8 +16,9 @@
 /**
  * ChatbotToolManager:
  *
- * External tool manager for Chatbot. This class implement [iface@Tool],
- * but it doesn't implement [method@Tool.get_name] and
+ * External tool manager for Chatbot.
+ *
+ * This class implement [iface@Tool], but it doesn't implement [method@Tool.get_name] and
  * [method@Tool.get_description] because this class is not intended to be used
  * as a Tool. Programmer should consider this class as helper class for
  * multiple tools.
@@ -175,7 +176,9 @@ chatbot_tool_manager_new (void)
  * chatbot_tool_manager_add_tool:
  * @tool: tool
  *
- * Add tool to manager. If name conflict is occured, this function fails.
+ * Add tool to manager.
+ *
+ * If name conflict is occured, this function fails.
  *
  * Returns: %TRUE if successfully added, %FALSE on failure.
  */
@@ -228,7 +231,9 @@ chatbot_tool_manager_add_tool (ChatbotToolManager *tool_manager,
  * chatbot_tool_manager_remove_tool_by_name:
  * @name: tool name
  *
- * Try to remove tool by name. Could be fail.
+ * Try to remove tool by name.
+ *
+ * If name is not found, this function fails.
  *
  * Returns: %TRUE if tool is removed, %FALSE if not.
  */

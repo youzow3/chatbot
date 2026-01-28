@@ -38,11 +38,42 @@ G_DEFINE_INTERFACE (ChatbotTool, chatbot_tool, G_TYPE_OBJECT);
 static void
 chatbot_tool_default_init (ChatbotToolInterface *iface)
 {
+  /**
+   * ChatbotTool::stdin:
+   * @tool: tool instance
+   *
+   * Signals to read text from a language model.
+   *
+   * fgets() with stdin or scanf() do not work for language models because
+   * [iface@LanguageModel] does not have access to stdin or stdout.
+   *
+   * Returns: Inputs from a language model.
+   */
   signals[STDIN] = g_signal_new ("stdin", CHATBOT_TYPE_TOOL, G_SIGNAL_RUN_LAST,
                                  0, NULL, NULL, NULL, G_TYPE_STRING, 0);
+  /**
+   * ChatbotTool::stdout:
+   * @tool: tool instance
+   * @cotent: string to print
+   *
+   * Signals to write out text to a language model.
+   *
+   * fputs() with stdout or printf() do not work for language models because
+   * [iface@LanguageModel] does not have access to stdin or stdout.
+   */
   signals[STDOUT]
       = g_signal_new ("stdout", CHATBOT_TYPE_TOOL, G_SIGNAL_RUN_LAST, 0, NULL,
                       NULL, NULL, G_TYPE_NONE, 1, G_TYPE_STRING);
+  /**
+   * ChatbotTool::stderr:
+   * @tool: tool instance
+   * @cotent: string to print
+   *
+   * Signals to write out text which might be error to a language model.
+   *
+   * fputs() with stderr or fprintf() with stderr do not work for language
+   * models because [iface@LanguageModel] does not have access to stderr.
+   */
   signals[STDERR]
       = g_signal_new ("stderr", CHATBOT_TYPE_TOOL, G_SIGNAL_RUN_LAST, 0, NULL,
                       NULL, NULL, G_TYPE_NONE, 1, G_TYPE_STRING);
@@ -98,7 +129,7 @@ chatbot_tool_get_description (ChatbotTool *tool)
 /**
  * chatbot_tool_get_commands:
  *
- * Returned value should be valid for [method@Tool.call] of %argv[0].
+ * Returned value should be valid for [method@Tool.call] of argv[0].
  *
  * Returns: (transfer none): valid commands for this tool.
  */
@@ -117,6 +148,8 @@ chatbot_tool_get_commands (ChatbotTool *tool)
  * chatbot_tool_call:
  * @argc: length of @argv
  * @argv: (array length=argc): arguments
+ *
+ * Run the tool.
  *
  * Run the tool specified with %argv[0]. argc and argv are same as main(argc,
  * argv). For standard input, output and error, you should use %stdin, %stdout,
