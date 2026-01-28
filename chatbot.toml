@@ -1,0 +1,6 @@
+[library]
+version = 1.0
+authors = "Yuzo"
+license = "GPL-3-or-later"
+description = "Chatbot, the moduler AI system"
+repository_url = "https://github.com/youzow3/chatbot"
