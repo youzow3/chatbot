@@ -8,6 +8,8 @@ gmodule_dep = dependency('gmodule-2.0')
 gio_dep = dependency('gio-2.0')
 
 chatbot_src = files(
+  'chatbot/chatbot-module.h',
+  'chatbot/chatbot-module.c',
   'chatbot/chatbot-language-model.h',
   'chatbot/chatbot-language-model.c',
   'chatbot/chatbot-tool.h',

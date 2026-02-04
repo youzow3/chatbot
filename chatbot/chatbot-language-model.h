@@ -17,11 +17,13 @@
 #include <gio/gio.h>
 #include <glib-object.h>
 
+#include "chatbot-module.h"
+
 G_BEGIN_DECLS
 
 #define CHATBOT_TYPE_LANGUAGE_MODEL chatbot_language_model_get_type ()
 G_DECLARE_INTERFACE (ChatbotLanguageModel, chatbot_language_model, CHATBOT,
-                     LANGUAGE_MODEL, GInitable);
+                     LANGUAGE_MODEL, ChatbotModule);
 
 struct _ChatbotLanguageModelInterface
 {

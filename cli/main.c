@@ -30,11 +30,58 @@ typedef struct
   GString *command;
 } GeneratingData;
 
+typedef struct
+{
+  GModule *gmodule;
+  ChatbotModule *module;
+} Module;
+
+static gboolean
+module_init (Module *module, const gchar *filepath, const gchar *parameter,
+             GError **error)
+{
+  GType (*get_type) (void);
+  g_return_val_if_fail (module, FALSE);
+  g_return_val_if_fail (filepath, FALSE);
+  g_return_val_if_fail ((error != NULL) || (*error == NULL), FALSE);
+
+  // zero clear
+  memset (module, 0, sizeof (Module));
+
+  module->gmodule = g_module_open_full (filepath, G_MODULE_BIND_LAZY, error);
+  if (module->gmodule == NULL)
+    return FALSE;
+
+  if (!g_module_symbol (module->gmodule, "get_type", (gpointer)&get_type))
+    {
+      g_set_error (error, G_MODULE_ERROR, G_MODULE_ERROR_FAILED,
+                   "Failed to obtain get_type() from module \"%s\".",
+                   filepath);
+      goto cleanup;
+    }
+
+  module->module = chatbot_module_new (get_type (), parameter, error);
+  if (module->module == NULL)
+    goto cleanup;
+
+  return TRUE;
+cleanup:
+  g_clear_object (&module->module);
+  g_clear_pointer (&module->gmodule, g_module_close);
+  return FALSE;
+}
+
+static void
+module_free (Module *module)
+{
+  g_object_unref (module->module);
+  g_module_close (module->gmodule);
+}
+
 enum
 {
-  ARG_LANGUAGE_MODEL,
-  ARG_LANGUAGE_MODEL_ARGS,
-  ARG_TOOL,
+  ARG_MODULES,
+  ARG_MODULE_PARAMETERS,
   ARG_SYSTEM_PROMPT,
   ARG_SYSTEM_PROMPT_FILE,
   ARG_STATE_FILE,
@@ -42,21 +89,18 @@ enum
   N_ARGS
 };
 
-static gchar *language_model_module_path = NULL;
-static gchar *language_model_module_parameters = NULL;
-static GStrv tool_module_paths = NULL;
+static gchar **module_paths = NULL;
+static gchar **module_parameters = NULL;
 static gchar *system_prompt = NULL;
 static gchar *system_prompt_file = NULL;
 static gchar *state_file = NULL;
 
 static const GOptionEntry option_entries[N_ARGS] = {
-  { "lm", 0, G_OPTION_FLAG_FILENAME, G_OPTION_ARG_FILENAME,
-    &language_model_module_path, "Shared library for language model.", "lib" },
-  { "lm-args", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING,
-    &language_model_module_parameters, "Arguments for language model.",
-    "args" },
-  { "tool", 0, G_OPTION_FLAG_FILENAME, G_OPTION_ARG_FILENAME_ARRAY,
-    &tool_module_paths, "Shared library for tool.", "lib" },
+  { "modules", 0, G_OPTION_FLAG_FILENAME, G_OPTION_ARG_FILENAME_ARRAY,
+    &module_paths, "Modules to use, include language model, and tools.",
+    "module..." },
+  { "module-parameters", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING_ARRAY,
+    &module_parameters, "Parameters for each module.", "parameters..." },
   { "system-prompt", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING,
     &system_prompt, "System prompt for session." },
   { "system-prompt-file", 0, G_OPTION_FLAG_FILENAME, G_OPTION_ARG_FILENAME,
@@ -200,9 +244,7 @@ int
 main (int argc, char **argv)
 {
   GOptionContext *option_context = NULL;
-  GModule *language_model_module = NULL;
-  GType (*language_model_module_get_type) (void);
-  GArray *tool_modules = NULL;
+  GArray *modules = NULL;
   ChatbotLanguageModel *language_model = NULL;
   ChatbotToolManager *tool_manager = NULL;
   gboolean state_loaded = FALSE;
@@ -220,65 +262,62 @@ main (int argc, char **argv)
   if (!g_option_context_parse (option_context, &argc, &argv, &error))
     goto on_error;
 
-  if (language_model_module_path == NULL)
+  if (g_strv_length (module_paths) != g_strv_length (module_parameters))
+    g_warning (
+        "Specified number of modules and number of parameters are not equal.");
+
+  modules = g_array_sized_new (FALSE, FALSE, sizeof (Module),
+                               g_strv_length (module_paths));
+  g_array_set_clear_func (modules, (GDestroyNotify)module_free);
+
+  for (gchar **module_path = module_paths, **parameter = module_parameters;
+       *module_path && *parameter; module_path++, parameter++)
     {
-      fprintf (stderr,
-               "Fatal Error: Language model module path is not specified.\n");
-      goto cleanup;
+      Module module;
+
+      if (!module_init (&module, *module_path, *parameter, &error))
+        {
+          g_warning (
+              "Failed to initialize module \"%s\" with parameter \"%s\".",
+              *module_path, *parameter);
+          continue;
+        }
+
+      if (CHATBOT_IS_LANGUAGE_MODEL (module.module))
+        {
+          if (language_model == NULL)
+            {
+              language_model = CHATBOT_LANGUAGE_MODEL (module.module);
+              g_object_ref (language_model);
+            }
+          else
+            {
+              g_warning (
+                  "Language model module is specified more than once. Using "
+                  "first language module \"%s\"",
+                  chatbot_module_get_name (CHATBOT_MODULE (language_model)));
+            }
+        }
+
+      g_array_append_val (modules, module);
     }
 
-  language_model_module = g_module_open_full (language_model_module_path,
-                                              G_MODULE_BIND_LAZY, &error);
-  if (language_model_module == NULL)
-    goto cleanup;
-
-  if (!g_module_symbol (language_model_module,
-                        "language_model_module_get_type",
-                        (gpointer *)&language_model_module_get_type))
-    {
-      fprintf (
-          stderr,
-          "Fatal Error: language_model_module_get_type is not found in %s\n",
-          language_model_module_path);
-      goto cleanup;
-    }
-
-  tool_modules = g_array_new (FALSE, FALSE, sizeof (GModule *));
-  g_array_set_clear_func (tool_modules, (GDestroyNotify)g_module_close);
-  for (gchar **iter = tool_module_paths; tool_module_paths && *iter; iter++)
-    {
-      GModule *tool_module
-          = g_module_open_full (*iter, G_MODULE_BIND_LAZY, &error);
-      if (tool_module == NULL)
-        goto cleanup;
-      g_array_append_val (tool_modules, tool_module);
-    }
-
-  language_model
-      = chatbot_language_model_new (language_model_module_get_type (),
-                                    language_model_module_parameters, &error);
   if (language_model == NULL)
-    goto cleanup;
+    {
+      g_warning ("Language Model Module is not found.");
+      goto cleanup;
+    }
 
   tool_manager = chatbot_tool_manager_new ();
-  for (guint i = 0; i < tool_modules->len; i++)
+  for (guint i = 0; i < modules->len; i++)
     {
-      GModule *tool_module;
-      GType (*tool_module_get_type) (void);
-      ChatbotTool *tool;
+      Module module;
 
-      tool_module = g_array_index (tool_modules, GModule *, i);
-      if (!g_module_symbol (tool_module, "tool_module_get_type",
-                            (gpointer *)&tool_module_get_type))
-        {
-          fprintf (stderr,
-                   "Fatal Error: tool_module_get_type is not found in %s\n",
-                   tool_module_paths[i]);
-          goto cleanup;
-        }
-      tool = chatbot_tool_new (tool_module_get_type ());
-      chatbot_tool_manager_add_tool (tool_manager, tool);
-      g_object_unref (tool);
+      module = g_array_index (modules, Module, i);
+      if (!CHATBOT_IS_TOOL (module.module))
+        continue;
+      chatbot_tool_manager_add_tool (tool_manager,
+                                     CHATBOT_TOOL (module.module));
     }
 
   if (state_file)
@@ -360,15 +399,14 @@ main (int argc, char **argv)
 cleanup:
   g_object_unref (tool_manager);
   g_object_unref (language_model);
-  g_array_unref (tool_modules);
-  g_module_close (language_model_module);
+  g_array_unref (modules);
+  g_option_context_free (option_context);
+
   g_free (state_file);
   g_free (system_prompt_file);
   g_free (system_prompt);
-  g_strfreev (tool_module_paths);
-  g_free (language_model_module_parameters);
-  g_free (language_model_module_path);
-  g_option_context_free (option_context);
+  g_strfreev (module_parameters);
+  g_strfreev (module_paths);
   if (error)
     goto on_error;
   return ret_code;

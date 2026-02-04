@@ -16,26 +16,19 @@
 
 #include <glib-object.h>
 
-#include "chatbot-module.h"
-
 G_BEGIN_DECLS
 
-#define CHATBOT_TYPE_TOOL chatbot_tool_get_type ()
-G_DECLARE_INTERFACE (ChatbotTool, chatbot_tool, CHATBOT, TOOL, ChatbotModule);
+#define CHATBOT_TYPE_MODULE chatbot_module_get_type ()
+G_DECLARE_DERIVABLE_TYPE (ChatbotModule, chatbot_module, CHATBOT, MODULE,
+                          GObject);
 
-struct _ChatbotToolInterface
+struct _ChatbotModuleClass
 {
-  GTypeInterface iface;
-  const gchar *(*get_name) (ChatbotTool *tool);
-  const gchar *(*get_description) (ChatbotTool *tool);
-  const GStrv (*get_commands) (ChatbotTool *tool);
-  int (*call) (ChatbotTool *tool, int argc, char **argv);
+  GObjectClass parent_class;
 };
 
-gpointer chatbot_tool_new (GType type);
-const gchar *chatbot_tool_get_name (ChatbotTool *tool);
-const gchar *chatbot_tool_get_description (ChatbotTool *tool);
-const GStrv chatbot_tool_get_commands (ChatbotTool *tool);
-int chatbot_tool_call (ChatbotTool *tool, int argc, char **argv);
+ChatbotModule *chatbot_module_new (GType type, const gchar *parameter,
+                                   GError **error);
+const gchar *chatbot_module_get_name (ChatbotModule *module);
 
 G_END_DECLS

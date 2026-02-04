@@ -33,7 +33,7 @@ enum
 
 int signals[N_SIGNALS];
 
-G_DEFINE_INTERFACE (ChatbotTool, chatbot_tool, G_TYPE_OBJECT);
+G_DEFINE_INTERFACE (ChatbotTool, chatbot_tool, CHATBOT_TYPE_MODULE);
 
 static void
 chatbot_tool_default_init (ChatbotToolInterface *iface)

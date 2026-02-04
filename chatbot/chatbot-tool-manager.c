@@ -47,7 +47,7 @@ struct _ChatbotToolManager
 static void chatbot_tool_manager_tool_init (ChatbotToolInterface *iface);
 
 G_DEFINE_FINAL_TYPE_WITH_CODE (
-    ChatbotToolManager, chatbot_tool_manager, G_TYPE_OBJECT,
+    ChatbotToolManager, chatbot_tool_manager, CHATBOT_TYPE_MODULE,
     G_IMPLEMENT_INTERFACE (CHATBOT_TYPE_TOOL, chatbot_tool_manager_tool_init));
 
 static int

@@ -16,13 +16,14 @@
 
 #include <glib-object.h>
 
+#include "chatbot-module.h"
 #include "chatbot-tool.h"
 
 G_BEGIN_DECLS
 
 #define CHATBOT_TYPE_TOOL_MANAGER chatbot_tool_manager_get_type ()
 G_DECLARE_FINAL_TYPE (ChatbotToolManager, chatbot_tool_manager, CHATBOT,
-                      TOOL_MANAGER, GObject);
+                      TOOL_MANAGER, ChatbotModule);
 
 ChatbotToolManager *chatbot_tool_manager_new (void);
 gboolean chatbot_tool_manager_add_tool (ChatbotToolManager *tool_manager,

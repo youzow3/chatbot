@@ -36,7 +36,7 @@ enum
 static int signals[N_SIGNALS];
 
 G_DEFINE_INTERFACE (ChatbotLanguageModel, chatbot_language_model,
-                    G_TYPE_OBJECT);
+                    CHATBOT_TYPE_MODULE);
 
 gchar *
 chatbot_language_model_apply_chat_template_ (
