@@ -67,16 +67,6 @@ chatbot_language_model_default_init (ChatbotLanguageModelInterface *iface)
   iface->apply_chat_template = chatbot_language_model_apply_chat_template_;
 
   /**
-   * ChatbotLanguageModel:parameter:
-   *
-   * Construction parameter of language models.
-   */
-  g_object_interface_install_property (
-      iface,
-      g_param_spec_string ("parameter", "parameter", "construction parameter",
-                           NULL, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
-
-  /**
    * ChatbotLanguageModel::generating:
    * @language_model: language model instance
    * @text: generated token
