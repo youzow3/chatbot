@@ -22,12 +22,11 @@
 #include "chatbot-module.h"
 
 #include <gio/gio.h>
-#include <gmodule.h>
 
 enum
 {
-  PROP_PARAMETER = 1,
-  PROP_PARAMETER_KV,
+  PROP_RAW_PARAMETER = 1,
+  PROP_PARAMETER,
   PROP_NAME,
   N_PROPERTIES
 };
@@ -38,8 +37,8 @@ static GParamSpec *properties[N_PROPERTIES] = {
 
 typedef struct
 {
-  gchar *parameter;
-  GHashTable *parameter_table;
+  gchar *raw_parameter;
+  GHashTable *parameter;
   gchar *name;
 } ChatbotModulePrivate;
 
@@ -63,13 +62,13 @@ chatbot_module_set_property (GObject *object, guint property_id,
 
   switch (property_id)
     {
-    case PROP_PARAMETER:
-      g_clear_pointer (&priv->parameter, g_free);
-      priv->parameter = g_value_dup_string (value);
+    case PROP_RAW_PARAMETER:
+      g_clear_pointer (&priv->raw_parameter, g_free);
+      priv->raw_parameter = g_value_dup_string (value);
       break;
-    case PROP_PARAMETER_KV:
-      g_clear_pointer (&priv->parameter_table, g_hash_table_unref);
-      priv->parameter_table = g_value_dup_boxed (value);
+    case PROP_PARAMETER:
+      g_clear_pointer (&priv->parameter, g_hash_table_unref);
+      priv->parameter = g_value_dup_boxed (value);
       break;
     case PROP_NAME:
       g_clear_pointer (&priv->name, g_free);
@@ -90,11 +89,11 @@ chatbot_module_get_property (GObject *object, guint property_id, GValue *value,
 
   switch (property_id)
     {
-    case PROP_PARAMETER:
-      g_value_set_string (value, priv->parameter);
+    case PROP_RAW_PARAMETER:
+      g_value_set_string (value, priv->raw_parameter);
       break;
-    case PROP_PARAMETER_KV:
-      g_value_set_boxed (value, priv->parameter_table);
+    case PROP_PARAMETER:
+      g_value_set_boxed (value, priv->parameter);
       break;
     case PROP_NAME:
       g_value_set_string (value, priv->name);
@@ -111,7 +110,7 @@ chatbot_module_dispose (GObject *object)
   ChatbotModulePrivate *priv
       = chatbot_module_get_instance_private (CHATBOT_MODULE (object));
 
-  g_clear_pointer (&priv->parameter_table, g_hash_table_unref);
+  g_clear_pointer (&priv->parameter, g_hash_table_unref);
 
   G_OBJECT_CLASS (chatbot_module_parent_class)->dispose (object);
 }
@@ -123,7 +122,7 @@ chatbot_module_finalize (GObject *object)
       = chatbot_module_get_instance_private (CHATBOT_MODULE (object));
 
   g_clear_pointer (&priv->name, g_free);
-  g_clear_pointer (&priv->parameter, g_free);
+  g_clear_pointer (&priv->raw_parameter, g_free);
 
   G_OBJECT_CLASS (chatbot_module_parent_class)->finalize (object);
 }
@@ -135,12 +134,12 @@ chatbot_module_constructed (GObject *object)
   ChatbotModulePrivate *priv = chatbot_module_get_instance_private (module);
 
   gchar **kv_array;
-  kv_array = g_strsplit (priv->parameter, ":", -1);
+  kv_array = g_strsplit (priv->raw_parameter, ":", -1);
 
   for (gchar **iter = kv_array; *iter != NULL; iter++)
     {
       gchar **kv = g_strsplit (*iter, "=", 2); // "k=v" into {k, v}
-      if (!g_hash_table_insert (priv->parameter_table, kv[0], kv[1]))
+      if (!g_hash_table_insert (priv->parameter, kv[0], kv[1]))
         g_warning ("Failed to insert parameter \"%s\".", kv[0]);
       g_strfreev (kv);
     }
@@ -165,7 +164,7 @@ chatbot_module_class_init (ChatbotModuleClass *klass)
    *
    * raw module parameter to construct [property@Module:parameter]
    */
-  properties[PROP_PARAMETER] = g_param_spec_string (
+  properties[PROP_RAW_PARAMETER] = g_param_spec_string (
       "raw_parameter", "raw_parameter", "raw parameter string", "",
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_WRITABLE);
 
@@ -174,7 +173,7 @@ chatbot_module_class_init (ChatbotModuleClass *klass)
    *
    * Key-Value based module parameter.
    */
-  properties[PROP_PARAMETER_KV]
+  properties[PROP_PARAMETER]
       = g_param_spec_boxed ("parameter", "parameter", "parameter key-value",
                             G_TYPE_HASH_TABLE, G_PARAM_READABLE);
 
@@ -195,7 +194,7 @@ chatbot_module_init (ChatbotModule *module)
 {
   ChatbotModulePrivate *priv = chatbot_module_get_instance_private (module);
 
-  priv->parameter_table
+  priv->parameter
       = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
 }
 
@@ -228,4 +227,19 @@ chatbot_module_get_name (ChatbotModule *module)
   ChatbotModulePrivate *priv = chatbot_module_get_instance_private (module);
   g_return_val_if_fail (CHATBOT_IS_MODULE (module), NULL);
   return priv->name;
+}
+
+/**
+ * chatbot_module_get_parameter: (get-property parameter)
+ *
+ * Get the parameter key-value.
+ *
+ * Returns: (transfer none): [property@Module:parameter]
+ */
+GHashTable *
+chatbot_module_get_parameter (ChatbotModule *module)
+{
+  ChatbotModulePrivate *priv = chatbot_module_get_instance_private (module);
+  g_return_val_if_fail (CHATBOT_IS_MODULE (module), NULL);
+  return priv->parameter;
 }

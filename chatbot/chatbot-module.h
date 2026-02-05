@@ -30,5 +30,6 @@ struct _ChatbotModuleClass
 ChatbotModule *chatbot_module_new (GType type, const gchar *parameter,
                                    GError **error);
 const gchar *chatbot_module_get_name (ChatbotModule *module);
+GHashTable *chatbot_module_get_parameter (ChatbotModule *module);
 
 G_END_DECLS
