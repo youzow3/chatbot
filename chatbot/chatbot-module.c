@@ -140,8 +140,10 @@ chatbot_module_constructed (GObject *object)
     {
       gchar **kv = g_strsplit (*iter, "=", 2); // "k=v" into {k, v}
       if (!g_hash_table_insert (priv->parameter, kv[0], kv[1]))
-        g_warning ("Failed to insert parameter \"%s\".", kv[0]);
-      g_strfreev (kv);
+        {
+          g_warning ("Failed to insert parameter \"%s\".", kv[0]);
+          g_strfreev (kv);
+        }
     }
 
   g_strfreev (kv_array);
@@ -211,7 +213,7 @@ chatbot_module_init (ChatbotModule *module)
 ChatbotModule *
 chatbot_module_new (GType type, const gchar *parameter, GError **error)
 {
-  return g_initable_new (type, NULL, error, "parameter", parameter, NULL);
+  return g_initable_new (type, NULL, error, "raw_parameter", parameter, NULL);
 }
 
 /**

@@ -249,7 +249,7 @@ main (int argc, char **argv)
   ChatbotToolManager *tool_manager = NULL;
   gboolean state_loaded = FALSE;
 
-  GeneratingData generating_data;
+  GeneratingData generating_data = { 0 };
 
   gchar *pending_system_prompt = NULL;
   gchar *pending_user_prompt = NULL;
@@ -362,6 +362,8 @@ main (int argc, char **argv)
         g_strv_builder_add_many (builder, "System", pending_system_prompt,
                                  NULL);
 
+      printf ("User: ");
+      fflush (stdout);
       pending_user_prompt = read_user_input ();
       g_strv_builder_add_many (builder, "User", pending_user_prompt,
                                "Assistant", NULL);
@@ -374,6 +376,8 @@ main (int argc, char **argv)
                                            &error))
         goto loop_cleanup;
 
+      printf ("Assistant: ");
+      fflush (stdout);
       generated = chatbot_language_model_generate (language_model, &error);
       if (generated == NULL)
         goto loop_cleanup;
