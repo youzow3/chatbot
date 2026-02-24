@@ -27,6 +27,7 @@ typedef struct
   gboolean is_firstline;
   gboolean is_command;
   gboolean is_command_running;
+  gboolean is_command_handling;
   GString *command;
 } GeneratingData;
 
@@ -95,20 +96,20 @@ static gchar *system_prompt = NULL;
 static gchar *system_prompt_file = NULL;
 static gchar *state_file = NULL;
 
-static const GOptionEntry option_entries[N_ARGS] = {
-  { "modules", 0, G_OPTION_FLAG_FILENAME, G_OPTION_ARG_FILENAME_ARRAY,
-    &module_paths, "Modules to use, include language model, and tools.",
-    "module..." },
-  { "module-parameters", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING_ARRAY,
-    &module_parameters, "Parameters for each module.", "parameters..." },
-  { "system-prompt", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING,
-    &system_prompt, "System prompt for session." },
-  { "system-prompt-file", 0, G_OPTION_FLAG_FILENAME, G_OPTION_ARG_FILENAME,
-    &system_prompt_file, "System prompt for session." },
-  { "state-file", 0, G_OPTION_FLAG_FILENAME, G_OPTION_ARG_FILENAME,
-    &state_file, "State file for session." },
-  G_OPTION_ENTRY_NULL
-};
+static const GOptionEntry option_entries[N_ARGS]
+    = { { "modules", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME_ARRAY,
+          &module_paths, "Modules to use, include language model, and tools.",
+          "module..." },
+        { "module-parameters", 0, G_OPTION_FLAG_NONE,
+          G_OPTION_ARG_STRING_ARRAY, &module_parameters,
+          "Parameters for each module.", "parameters..." },
+        { "system-prompt", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING,
+          &system_prompt, "System prompt for session." },
+        { "system-prompt-file", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME,
+          &system_prompt_file, "System prompt for session." },
+        { "state-file", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME,
+          &state_file, "State file for session." },
+        G_OPTION_ENTRY_NULL };
 
 static gboolean
 generating (ChatbotLanguageModel *lm, const gchar *text, gpointer user_data)
@@ -119,14 +120,18 @@ generating (ChatbotLanguageModel *lm, const gchar *text, gpointer user_data)
   if (data->is_firstline)
     {
       size_t len = strlen (text);
+      size_t start = 0;
       data->is_firstline = FALSE;
       if (len == 0)
         return TRUE;
 
-      if (text[0] == '!')
+      for (; isspace (text[start]); start++)
+        {
+        }
+      if (text[start] == '!')
         {
           data->is_command = TRUE;
-          data->command = g_string_new (text + 1);
+          data->command = g_string_new (text + start + 1);
           return TRUE;
         }
     }
@@ -146,6 +151,7 @@ generating (ChatbotLanguageModel *lm, const gchar *text, gpointer user_data)
         {
           int argc;
           GStrv argv;
+          char **argv_shallow;
           gchar *command = g_string_free_and_steal (data->command);
           data->command = NULL;
 
@@ -159,10 +165,18 @@ generating (ChatbotLanguageModel *lm, const gchar *text, gpointer user_data)
               g_string_free (msg, TRUE);
             }
 
+          // Tool may modify argv via some functionality like GLib's command
+          // line option parser. So feed shallow copy version to tool to avoid
+          // memory leak.
+          argv_shallow = g_new (char *, argc);
+          memcpy (argv_shallow, argv, sizeof (char *) * argc);
+
           data->is_command_running = TRUE;
           chatbot_tool_call (CHATBOT_TOOL (data->tool_manager), argc, argv);
           data->is_command_running = FALSE;
+          data->is_command_handling = TRUE;
 
+          g_free (argv_shallow);
           g_strfreev (argv);
           g_free (command);
         }
@@ -277,9 +291,9 @@ main (int argc, char **argv)
 
       if (!module_init (&module, *module_path, *parameter, &error))
         {
-          g_warning (
-              "Failed to initialize module \"%s\" with parameter \"%s\".",
-              *module_path, *parameter);
+          g_warning ("Failed to initialize module \"%s\" with parameter "
+                     "\"%s\". Error: \"%s\"",
+                     *module_path, *parameter, error->message);
           continue;
         }
 
@@ -364,9 +378,25 @@ main (int argc, char **argv)
 
       printf ("User: ");
       fflush (stdout);
-      pending_user_prompt = read_user_input ();
-      g_strv_builder_add_many (builder, "User", pending_user_prompt,
-                               "Assistant", NULL);
+      if (!generating_data.is_command_handling)
+        {
+          pending_user_prompt = g_strstrip (read_user_input ());
+          if (pending_user_prompt[0] == '!')
+            {
+              const gchar *command = pending_user_prompt + 1;
+              if (!strcmp (command, "exit"))
+                {
+                  g_free (pending_user_prompt);
+                  g_clear_pointer (&pending_system_prompt, g_free);
+                  g_strv_builder_unref (builder);
+                  break;
+                }
+            }
+          g_strv_builder_add_many (builder, "User", pending_user_prompt, NULL);
+        }
+      else
+        generating_data.is_command_handling = FALSE;
+      g_strv_builder_add (builder, "Assistant");
 
       role_and_messages = g_strv_builder_end (builder);
       chat_template = chatbot_language_model_apply_chat_template (
@@ -376,6 +406,7 @@ main (int argc, char **argv)
                                            &error))
         goto loop_cleanup;
 
+      generating_data.is_firstline = TRUE;
       printf ("Assistant: ");
       fflush (stdout);
       generated = chatbot_language_model_generate (language_model, &error);
@@ -384,7 +415,7 @@ main (int argc, char **argv)
 
     loop_cleanup:
       g_free (generated);
-      g_clear_pointer (&pending_user_prompt, free);
+      g_free (pending_user_prompt);
       g_clear_pointer (&pending_system_prompt, g_free);
       g_strfreev (role_and_messages);
       g_free (chat_template);

@@ -39,9 +39,9 @@ static guint signals[N_SIGNALS];
 struct _ChatbotToolManager
 {
   GObject parent_instance;
-  GHashTable *name_tool; // <gchar*, ChatbotTool> (tool name, ChatbotTool*)
+  GHashTable *name2tool; // <gchar*, ChatbotTool> (tool name, ChatbotTool*)
   GHashTable
-      *command_name; // <gchar*, GArray*> (command name, tool name array)
+      *command2tools; // <gchar*, GArray*> (command name, tool name array)
 };
 
 static void chatbot_tool_manager_tool_init (ChatbotToolInterface *iface);
@@ -53,39 +53,38 @@ G_DEFINE_FINAL_TYPE_WITH_CODE (
 static int
 chatbot_tool_manager_call (ChatbotTool *tool, int argc, char **argv)
 {
-  GArray *cmd_tool;
+  GArray *tools;
   const gchar *cmd = argv[0];
   ChatbotToolManager *tool_manager = CHATBOT_TOOL_MANAGER (tool);
 
-  cmd_tool = g_hash_table_lookup (tool_manager->command_name, cmd);
-  if (cmd_tool == NULL) // No tool provide specified command
+  tools = g_hash_table_lookup (tool_manager->command2tools, cmd);
+  if (tools == NULL) // No tool provide specified command
     {
       gchar *msg
           = g_strdup_printf ("No command named \"%s\" is found.\n", cmd);
-      g_signal_emit_by_name (CHATBOT_TOOL (cmd_tool), "stderr", msg);
+      g_signal_emit_by_name (CHATBOT_TOOL (tools), "stderr", msg);
       g_free (msg);
       return -1;
     }
 
-  if (cmd_tool->len > 1) // If some tools provide command
+  if (tools->len > 1) // If some tools provide command
     {
       GString *msg = g_string_new (NULL);
       g_string_printf (msg, "Command \"%s\" is provided by some tools:", cmd);
-      for (guint i = 0; i < cmd_tool->len; i++)
+      for (guint i = 0; i < tools->len; i++)
         g_string_append_printf (msg, " %s%c", cmd,
-                                (i + 1) == cmd_tool->len ? '\n' : ',');
+                                (i + 1) == tools->len ? '\n' : ',');
       g_string_append_printf (msg,
                               "To call this command, you need to specify tool "
                               "name, like \"[namespace]:%s\".\n",
                               cmd);
-      g_signal_emit_by_name (CHATBOT_TOOL (cmd_tool), "stderr", msg->str);
+      g_signal_emit_by_name (CHATBOT_TOOL (tools), "stderr", msg->str);
       g_string_free (msg, TRUE);
       return -1;
     }
 
   return chatbot_tool_call (
-      g_hash_table_lookup (tool_manager->name_tool,
-                           g_array_index (cmd_tool, const gchar *, 0)),
+                           g_array_index (tools, ChatbotTool*, 0),
       argc, argv);
 }
 
@@ -141,10 +140,10 @@ chatbot_tool_manager_dispose (GObject *object)
 {
   ChatbotToolManager *tool_manager = CHATBOT_TOOL_MANAGER (object);
 
-  g_clear_pointer (&tool_manager->command_name, g_hash_table_unref);
-  g_hash_table_foreach (tool_manager->name_tool,
+  g_clear_pointer (&tool_manager->command2tools, g_hash_table_unref);
+  g_hash_table_foreach (tool_manager->name2tool,
                         chatbot_tool_manager_dispose__name_tool, object);
-  g_clear_pointer (&tool_manager->name_tool, g_hash_table_unref);
+  g_clear_pointer (&tool_manager->name2tool, g_hash_table_unref);
 
   G_OBJECT_CLASS (chatbot_tool_manager_parent_class)->dispose (object);
 }
@@ -160,9 +159,9 @@ chatbot_tool_manager_class_init (ChatbotToolManagerClass *klass)
 static void
 chatbot_tool_manager_init (ChatbotToolManager *tool_manager)
 {
-  tool_manager->name_tool = g_hash_table_new_full (g_str_hash, g_str_equal,
+  tool_manager->name2tool = g_hash_table_new_full (g_str_hash, g_str_equal,
                                                    g_free, g_object_unref);
-  tool_manager->command_name = g_hash_table_new_full (
+  tool_manager->command2tools = g_hash_table_new_full (
       g_str_hash, g_str_equal, g_free, (GDestroyNotify)g_array_unref);
 }
 
@@ -195,13 +194,13 @@ chatbot_tool_manager_add_tool (ChatbotToolManager *tool_manager,
   name = chatbot_tool_get_name (tool);
   g_return_val_if_fail (name, FALSE);
 
-  if (!g_hash_table_insert (tool_manager->name_tool, g_strdup (name), tool))
+  if (!g_hash_table_insert (tool_manager->name2tool, g_strdup (name), tool))
     return FALSE;
 
   commands = chatbot_tool_get_commands (tool);
   for (gchar **iter = commands; *iter; iter++)
     {
-      GArray *array = g_hash_table_lookup (tool_manager->command_name, *iter);
+      GArray *array = g_hash_table_lookup (tool_manager->command2tools, *iter);
       if (array != NULL)
         {
           g_array_append_val (array, tool);
@@ -209,7 +208,7 @@ chatbot_tool_manager_add_tool (ChatbotToolManager *tool_manager,
         }
 
       array = g_array_new (FALSE, FALSE, sizeof (ChatbotTool *));
-      g_array_set_clear_func (array, g_free);
+      g_array_set_clear_func (array, g_object_unref);
       g_object_ref (tool);
       g_signal_connect (tool, "stdin", G_CALLBACK (chatbot_tool_manager_stdin),
                         tool_manager);
@@ -220,7 +219,7 @@ chatbot_tool_manager_add_tool (ChatbotToolManager *tool_manager,
                         G_CALLBACK (chatbot_tool_manager_stderr),
                         tool_manager);
       g_array_append_val (array, tool);
-      g_hash_table_insert (tool_manager->command_name, g_strdup (*iter),
+      g_hash_table_insert (tool_manager->command2tools, g_strdup (*iter),
                            array);
     }
 
@@ -247,7 +246,7 @@ chatbot_tool_manager_remove_tool_by_name (ChatbotToolManager *tool_manager,
   g_return_val_if_fail (CHATBOT_IS_TOOL_MANAGER (tool_manager), FALSE);
   g_return_val_if_fail (name, FALSE);
 
-  tool = g_hash_table_lookup (tool_manager->name_tool, name);
+  tool = g_hash_table_lookup (tool_manager->name2tool, name);
   if (tool == NULL)
     return FALSE;
 
@@ -255,10 +254,10 @@ chatbot_tool_manager_remove_tool_by_name (ChatbotToolManager *tool_manager,
   for (gchar **iter = commands; *iter; iter++)
     {
       guint idx;
-      GArray *array = g_hash_table_lookup (tool_manager->command_name, *iter);
+      GArray *array = g_hash_table_lookup (tool_manager->command2tools, *iter);
       if (array->len == 1)
         {
-          g_hash_table_remove (tool_manager->command_name, *iter);
+          g_hash_table_remove (tool_manager->command2tools, *iter);
           continue;
         }
 
@@ -274,7 +273,7 @@ chatbot_tool_manager_remove_tool_by_name (ChatbotToolManager *tool_manager,
   g_signal_handlers_disconnect_by_func (
       tool, G_CALLBACK (chatbot_tool_manager_stdin), tool_manager);
 
-  g_hash_table_remove (tool_manager->name_tool, name);
+  g_hash_table_remove (tool_manager->name2tool, name);
 
   return TRUE;
 }
@@ -295,5 +294,5 @@ chatbot_tool_manager_get_tool_by_name (ChatbotToolManager *tool_manager,
   g_return_val_if_fail (CHATBOT_IS_TOOL_MANAGER (tool_manager), NULL);
   g_return_val_if_fail (name, NULL);
 
-  return g_hash_table_lookup (tool_manager->name_tool, name);
+  return g_hash_table_lookup (tool_manager->name2tool, name);
 }
