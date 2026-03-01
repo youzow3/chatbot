@@ -14,7 +14,26 @@
  */
 #pragma once
 
-#include "chatbot-language-model.h"
-#include "chatbot-tool-manager.h"
-#include "chatbot-tool.h"
-#include "chatbot-trainer.h"
+#include <gio/gio.h>
+#include <glib-object.h>
+
+#include "chatbot-module.h"
+
+G_BEGIN_DECLS
+
+#define CHATBOT_TYPE_TRAINER chatbot_trainer_get_type ()
+G_DECLARE_INTERFACE (ChatbotTrainer, chatbot_trainer, CHATBOT, TRAINER,
+                     ChatbotModule);
+
+struct _ChatbotTrainerInterface
+{
+  GTypeInterface iface;
+  gboolean (*train) (ChatbotTrainer *trainer, GValue **data, gsize len,
+                     GCancellable *cancellable, GError **error);
+};
+
+gboolean chatbot_trainer_train (ChatbotTrainer *trainer, GValue **data,
+                                gsize len, GCancellable *cancellable,
+                                GError **error);
+
+G_END_DECLS

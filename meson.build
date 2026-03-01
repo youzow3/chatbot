@@ -12,6 +12,8 @@ chatbot_src = files(
   'chatbot/chatbot-module.c',
   'chatbot/chatbot-language-model.h',
   'chatbot/chatbot-language-model.c',
+  'chatbot/chatbot-trainer.h',
+  'chatbot/chatbot-trainer.c',
   'chatbot/chatbot-tool.h',
   'chatbot/chatbot-tool.c',
   'chatbot/chatbot-tool-manager.h',
