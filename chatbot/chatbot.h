@@ -18,3 +18,5 @@
 #include "chatbot-tool-manager.h"
 #include "chatbot-tool.h"
 #include "chatbot-trainer.h"
+#include "chatbot-data.h"
+#include "chatbot-chat-data.h"

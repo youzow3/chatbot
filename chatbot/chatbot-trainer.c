@@ -40,9 +40,31 @@ chatbot_trainer_default_init (ChatbotTrainerInterface *iface)
 {
 }
 
+/**
+ * chatbot_trainer_train:
+ * @trainer: instance
+ * @data: (array length=data_len): Training data array
+ * @data_len: Length of @data
+ * @cancellable: (nullable): %GCancellable instance
+ * @error: (nullable): Location to store runtime errors
+ *
+ * Trains model with given training data.
+ *
+ * Trains model with given training data. This function will ignore data which
+ * does not match expected type(s). Implementer will handle all configuration
+ * of training. This function should also perform saving trained weight for
+ * inference.
+ *
+ * Runtime error should only be happened for actual training logic, not data
+ * length or data types mismatch.
+ *
+ * Returns: %TRUE if training is successfully finished and %FALSE if something
+ * went wrong.
+ */
 gboolean
-chatbot_trainer_train (ChatbotTrainer *trainer, GValue **data, gsize len,
-                       GCancellable *cancellable, GError **error)
+chatbot_trainer_train (ChatbotTrainer *trainer, ChatbotData **data,
+                       size_t data_len, GCancellable *cancellable,
+                       GError **error)
 {
   ChatbotTrainerInterface *iface;
 
@@ -57,5 +79,5 @@ chatbot_trainer_train (ChatbotTrainer *trainer, GValue **data, gsize len,
                    "Trainer implementation doesn't provide train().");
       return FALSE;
     }
-  return iface->train (trainer, data, len, cancellable, error);
+  return iface->train (trainer, data, data_len, cancellable, error);
 }

@@ -162,7 +162,7 @@ generating (ChatbotLanguageModel *lm, const gchar *text, gpointer user_data)
                                command, error->message);
               if (!chatbot_language_model_prefill (lm, msg->str, NULL))
                 return FALSE;
-              g_string_free (msg, TRUE);
+              g_string_free (msg, TRUE); // TODO memory leak error and msg
             }
 
           // Tool may modify argv via some functionality like GLib's command
@@ -261,6 +261,8 @@ main (int argc, char **argv)
   GArray *modules = NULL;
   ChatbotLanguageModel *language_model = NULL;
   ChatbotToolManager *tool_manager = NULL;
+  ChatbotChatData *chat_data = NULL;
+  ChatbotTrainer *trainer = NULL;
   gboolean state_loaded = FALSE;
 
   GeneratingData generating_data = { 0 };
@@ -294,6 +296,7 @@ main (int argc, char **argv)
           g_warning ("Failed to initialize module \"%s\" with parameter "
                      "\"%s\". Error: \"%s\"",
                      *module_path, *parameter, error->message);
+          g_clear_error (&error);
           continue;
         }
 
@@ -310,6 +313,21 @@ main (int argc, char **argv)
                   "Language model module is specified more than once. Using "
                   "first language module \"%s\"",
                   chatbot_module_get_name (CHATBOT_MODULE (language_model)));
+            }
+        }
+
+      if (CHATBOT_IS_TRAINER (module.module))
+        {
+          if (trainer == NULL)
+            {
+              trainer = CHATBOT_TRAINER (module.module);
+              g_object_ref (trainer);
+            }
+          else
+            {
+              g_warning ("Trainer module is specified more than once. Using "
+                         "first trainer module \"%s\"",
+                         chatbot_module_get_name (CHATBOT_MODULE (trainer)));
             }
         }
 
@@ -364,6 +382,8 @@ main (int argc, char **argv)
   if (system_prompt && !state_loaded)
     pending_system_prompt = g_strdup (system_prompt);
 
+  chat_data = chatbot_chat_data_new ();
+
   // Main Loop
   while (TRUE)
     {
@@ -393,6 +413,7 @@ main (int argc, char **argv)
                 }
             }
           g_strv_builder_add_many (builder, "User", pending_user_prompt, NULL);
+          chatbot_chat_data_append (chat_data, "User", pending_user_prompt);
         }
       else
         generating_data.is_command_handling = FALSE;
@@ -412,6 +433,7 @@ main (int argc, char **argv)
       generated = chatbot_language_model_generate (language_model, &error);
       if (generated == NULL)
         goto loop_cleanup;
+      chatbot_chat_data_append (chat_data, "Assistant", generated);
 
     loop_cleanup:
       g_free (generated);
@@ -430,12 +452,22 @@ main (int argc, char **argv)
                                              &error))
     goto cleanup;
 
+  if (trainer)
+    {
+      if (!chatbot_trainer_train (
+              trainer, (ChatbotData *[]){ CHATBOT_DATA (chat_data) }, 1, NULL,
+              &error))
+        goto cleanup;
+    }
+
   ret_code = 0;
 cleanup:
-  g_object_unref (tool_manager);
-  g_object_unref (language_model);
-  g_array_unref (modules);
-  g_option_context_free (option_context);
+  g_clear_object (&trainer);
+  g_clear_object (&chat_data);
+  g_clear_object (&tool_manager);
+  g_clear_object (&language_model);
+  g_clear_pointer (&modules, g_array_unref);
+  g_clear_pointer (&option_context, g_option_context_free);
 
   g_free (state_file);
   g_free (system_prompt_file);

@@ -14,28 +14,21 @@
  */
 #pragma once
 
-#include <gio/gio.h>
 #include <glib-object.h>
-
-#include "chatbot-data.h"
-#include "chatbot-module.h"
 
 G_BEGIN_DECLS
 
-#define CHATBOT_TYPE_TRAINER chatbot_trainer_get_type ()
-G_DECLARE_INTERFACE (ChatbotTrainer, chatbot_trainer, CHATBOT, TRAINER,
-                     ChatbotModule);
+#define CHATBOT_TYPE_CHAT_DATA chatbot_chat_data_get_type ()
+G_DECLARE_DERIVABLE_TYPE (ChatbotChatData, chatbot_chat_data, CHATBOT,
+                          CHAT_DATA, GObject);
 
-struct _ChatbotTrainerInterface
+struct _ChatbotChatDataClass
 {
-  GTypeInterface iface;
-  gboolean (*train) (ChatbotTrainer *trainer, ChatbotData **data,
-                     size_t data_len, GCancellable *cancellable,
-                     GError **error);
+  GObjectClass parent_class;
 };
 
-gboolean chatbot_trainer_train (ChatbotTrainer *trainer, ChatbotData **data,
-                                size_t data_len, GCancellable *cancellable,
-                                GError **error);
+ChatbotChatData *chatbot_chat_data_new (void);
+void chatbot_chat_data_append (ChatbotChatData *chat_data, const gchar *role,
+                               const gchar *message);
 
 G_END_DECLS
