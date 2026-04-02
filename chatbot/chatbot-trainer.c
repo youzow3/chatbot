@@ -70,7 +70,7 @@ chatbot_trainer_train (ChatbotTrainer *trainer, ChatbotData **data,
 
   g_return_val_if_fail (CHATBOT_IS_TRAINER (trainer), FALSE);
   g_return_val_if_fail (data != NULL, FALSE);
-  g_return_val_if_fail (cancellable != NULL, FALSE);
+  g_return_val_if_fail (G_IS_CANCELLABLE(cancellable) || cancellable == NULL, FALSE);
   g_return_val_if_fail ((error == NULL) || (*error == NULL), FALSE);
   iface = CHATBOT_TRAINER_GET_IFACE (trainer);
   if (iface->train == NULL)

@@ -86,6 +86,8 @@ enum
   ARG_SYSTEM_PROMPT,
   ARG_SYSTEM_PROMPT_FILE,
   ARG_STATE_FILE,
+  ARG_TRAINING_MODULE,
+  ARG_TRAINING_MODULE_PARAMETER,
   ARG_NULL,
   N_ARGS
 };
@@ -95,21 +97,27 @@ static gchar **module_parameters = NULL;
 static gchar *system_prompt = NULL;
 static gchar *system_prompt_file = NULL;
 static gchar *state_file = NULL;
+static gchar *training_module_path = NULL;
+static gchar *training_module_parameter = NULL;
 
-static const GOptionEntry option_entries[N_ARGS]
-    = { { "modules", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME_ARRAY,
-          &module_paths, "Modules to use, include language model, and tools.",
-          "module..." },
-        { "module-parameters", 0, G_OPTION_FLAG_NONE,
-          G_OPTION_ARG_STRING_ARRAY, &module_parameters,
-          "Parameters for each module.", "parameters..." },
-        { "system-prompt", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING,
-          &system_prompt, "System prompt for session." },
-        { "system-prompt-file", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME,
-          &system_prompt_file, "System prompt for session." },
-        { "state-file", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME,
-          &state_file, "State file for session." },
-        G_OPTION_ENTRY_NULL };
+static const GOptionEntry option_entries[N_ARGS] = {
+  { "modules", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME_ARRAY,
+    &module_paths, "Modules to use, include language model, and tools.",
+    "module..." },
+  { "module-parameters", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING_ARRAY,
+    &module_parameters, "Parameters for each module.", "parameters..." },
+  { "system-prompt", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING,
+    &system_prompt, "System prompt for session." },
+  { "system-prompt-file", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME,
+    &system_prompt_file, "System prompt for session." },
+  { "state-file", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME, &state_file,
+    "State file for session." },
+  { "training-module", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME,
+    &training_module_path, "Training Module to train model.", "module" },
+  { "training-module-parameter", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING,
+    &training_module_parameter, "Parameter of Training Module", "parameter" },
+  G_OPTION_ENTRY_NULL
+};
 
 static gboolean
 generating (ChatbotLanguageModel *lm, const gchar *text, gpointer user_data)
@@ -452,8 +460,31 @@ main (int argc, char **argv)
                                              &error))
     goto cleanup;
 
-  if (trainer)
+  if (trainer || training_module_path)
     {
+      g_clear_object (&tool_manager);
+      g_clear_object (&language_model);
+      g_clear_pointer (&modules, g_array_unref);
+
+      if (!trainer && training_module_path)
+        {
+          Module m;
+
+          if (!module_init (&m, training_module_path,
+                            training_module_parameter, &error))
+            goto cleanup;
+
+          if (!CHATBOT_IS_TRAINER (m.module))
+            {
+              g_set_error (&error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
+                           "Module specified as Training Module doesn't "
+                           "implement ChatbotTrainer.");
+              goto cleanup;
+            }
+          trainer = CHATBOT_TRAINER (m.module);
+          g_object_ref (trainer);
+        }
+
       if (!chatbot_trainer_train (
               trainer, (ChatbotData *[]){ CHATBOT_DATA (chat_data) }, 1, NULL,
               &error))
