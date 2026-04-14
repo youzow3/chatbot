@@ -34,6 +34,8 @@ struct _ChatbotTrainerInterface
                      GError **error);
 };
 
+gpointer chatbot_trainer_new (GType type, const gchar *parameter,
+                              GError **error);
 gboolean chatbot_trainer_train (ChatbotTrainer *trainer, ChatbotData **data,
                                 size_t data_len, GCancellable *cancellable,
                                 GError **error);

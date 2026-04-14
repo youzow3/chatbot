@@ -115,7 +115,7 @@ chatbot_language_model_default_init (ChatbotLanguageModelInterface *iface)
 gpointer
 chatbot_language_model_new (GType type, const gchar *parameter, GError **error)
 {
-  return g_initable_new (type, NULL, error, "parameter", parameter, NULL);
+  return g_initable_new (type, NULL, error, "raw_parameter", parameter, NULL);
 }
 
 /**

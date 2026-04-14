@@ -219,7 +219,7 @@ static void
 tool_mgr_stdout (ChatbotTool *tool, const gchar *text, gpointer user_data)
 {
   ChatbotLanguageModel *lm = CHATBOT_LANGUAGE_MODEL (user_data);
-  const gchar *rm[3] = { "System", NULL, NULL };
+  const gchar *rm[3] = { "system", NULL, NULL };
   gchar *rm_text;
   rm[1] = text;
 
@@ -232,7 +232,7 @@ static void
 tool_mgr_stderr (ChatbotTool *tool, const gchar *text, gpointer user_data)
 {
   ChatbotLanguageModel *lm = CHATBOT_LANGUAGE_MODEL (user_data);
-  const gchar *rm[3] = { "System", NULL, NULL };
+  const gchar *rm[3] = { "system", NULL, NULL };
   gchar *rm_text;
   rm[1] = text;
 
@@ -401,7 +401,7 @@ main (int argc, char **argv)
       GStrvBuilder *builder = g_strv_builder_new ();
 
       if (pending_system_prompt)
-        g_strv_builder_add_many (builder, "System", pending_system_prompt,
+        g_strv_builder_add_many (builder, "system", pending_system_prompt,
                                  NULL);
 
       printf ("User: ");
@@ -420,12 +420,12 @@ main (int argc, char **argv)
                   break;
                 }
             }
-          g_strv_builder_add_many (builder, "User", pending_user_prompt, NULL);
-          chatbot_chat_data_append (chat_data, "User", pending_user_prompt);
+          g_strv_builder_add_many (builder, "user", pending_user_prompt, NULL);
+          chatbot_chat_data_append (chat_data, "user", pending_user_prompt);
         }
       else
         generating_data.is_command_handling = FALSE;
-      g_strv_builder_add (builder, "Assistant");
+      g_strv_builder_add (builder, "assistant");
 
       role_and_messages = g_strv_builder_end (builder);
       chat_template = chatbot_language_model_apply_chat_template (
@@ -441,7 +441,7 @@ main (int argc, char **argv)
       generated = chatbot_language_model_generate (language_model, &error);
       if (generated == NULL)
         goto loop_cleanup;
-      chatbot_chat_data_append (chat_data, "Assistant", generated);
+      chatbot_chat_data_append (chat_data, "assistant", generated);
 
     loop_cleanup:
       g_free (generated);
