@@ -14,9 +14,9 @@
  */
 #pragma once
 
+#include "chatbot-chat-data.h"
+#include "chatbot-data.h"
 #include "chatbot-language-model.h"
-#include "chatbot-tool-manager.h"
+#include "chatbot-tool-callable-language-model.h"
 #include "chatbot-tool.h"
 #include "chatbot-trainer.h"
-#include "chatbot-data.h"
-#include "chatbot-chat-data.h"

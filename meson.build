@@ -20,8 +20,8 @@ chatbot_src = files(
   'chatbot/chatbot-chat-data.c',
   'chatbot/chatbot-tool.h',
   'chatbot/chatbot-tool.c',
-  'chatbot/chatbot-tool-manager.h',
-  'chatbot/chatbot-tool-manager.c',
+  'chatbot/chatbot-tool-callable-language-model.h',
+  'chatbot/chatbot-tool-callable-language-model.c'
 )
 
 chatbot_inc = 'chatbot/'

@@ -19,17 +19,7 @@
 #include <gio/gio.h>
 #include <gmodule.h>
 
-#include <chatbot.h>
-
-typedef struct
-{
-  ChatbotToolManager *tool_manager;
-  gboolean is_firstline;
-  gboolean is_command;
-  gboolean is_command_running;
-  gboolean is_command_handling;
-  GString *command;
-} GeneratingData;
+#include "chatbot.h"
 
 typedef struct
 {
@@ -122,123 +112,9 @@ static const GOptionEntry option_entries[N_ARGS] = {
 static gboolean
 generating (ChatbotLanguageModel *lm, const gchar *text, gpointer user_data)
 {
-  GeneratingData *data = user_data;
-  GError *error = NULL;
-
-  if (data->is_firstline)
-    {
-      size_t len = strlen (text);
-      size_t start = 0;
-      data->is_firstline = FALSE;
-      if (len == 0)
-        return TRUE;
-
-      for (; isspace (text[start]); start++)
-        {
-        }
-      if (text[start] == '!')
-        {
-          data->is_command = TRUE;
-          data->command = g_string_new (text + start + 1);
-          return TRUE;
-        }
-    }
-
-  if (data->is_command)
-    {
-      for (const gchar *t = text; *t != 0; t++)
-        if (*t == '\n')
-          {
-            g_string_append_len (data->command, text, t - text);
-            data->is_command = FALSE;
-          }
-
-      if (data->is_command)
-        g_string_append (data->command, text);
-      else
-        {
-          int argc;
-          GStrv argv;
-          char **argv_shallow;
-          gchar *command = g_string_free_and_steal (data->command);
-          data->command = NULL;
-
-          if (!g_shell_parse_argv (command, &argc, &argv, &error))
-            {
-              GString *msg = g_string_new (NULL);
-              g_string_printf (msg, "Failed to call command \"%s\": %s\n",
-                               command, error->message);
-              if (!chatbot_language_model_prefill (lm, msg->str, NULL))
-                return FALSE;
-              g_string_free (msg, TRUE); // TODO memory leak error and msg
-            }
-
-          // Tool may modify argv via some functionality like GLib's command
-          // line option parser. So feed shallow copy version to tool to avoid
-          // memory leak.
-          argv_shallow = g_new (char *, argc);
-          memcpy (argv_shallow, argv, sizeof (char *) * argc);
-
-          data->is_command_running = TRUE;
-          chatbot_tool_call (CHATBOT_TOOL (data->tool_manager), argc, argv);
-          data->is_command_running = FALSE;
-          data->is_command_handling = TRUE;
-
-          g_free (argv_shallow);
-          g_strfreev (argv);
-          g_free (command);
-        }
-
-      return TRUE;
-    }
-
-  if (text[strlen (text) - 1] == '\n')
-    data->is_firstline = TRUE;
-
-  if (!data->is_command_running)
-    {
-      printf ("%s", text);
-      fflush (stdout);
-    }
+  printf ("%s", text);
+  fflush (stdout);
   return TRUE;
-}
-
-static gchar *
-tool_mgr_stdin (ChatbotTool *tool, gpointer user_data)
-{
-  ChatbotLanguageModel *lm = CHATBOT_LANGUAGE_MODEL (user_data);
-  gchar *generated;
-
-  generated = chatbot_language_model_generate (lm, NULL);
-  if (generated == NULL)
-    generated = g_strdup ("");
-  return generated;
-}
-
-static void
-tool_mgr_stdout (ChatbotTool *tool, const gchar *text, gpointer user_data)
-{
-  ChatbotLanguageModel *lm = CHATBOT_LANGUAGE_MODEL (user_data);
-  const gchar *rm[3] = { "system", NULL, NULL };
-  gchar *rm_text;
-  rm[1] = text;
-
-  rm_text = chatbot_language_model_apply_chat_template (lm, (GStrv)rm);
-  chatbot_language_model_prefill (lm, rm_text, NULL);
-  g_free (rm_text);
-}
-
-static void
-tool_mgr_stderr (ChatbotTool *tool, const gchar *text, gpointer user_data)
-{
-  ChatbotLanguageModel *lm = CHATBOT_LANGUAGE_MODEL (user_data);
-  const gchar *rm[3] = { "system", NULL, NULL };
-  gchar *rm_text;
-  rm[1] = text;
-
-  rm_text = chatbot_language_model_apply_chat_template (lm, (GStrv)rm);
-  chatbot_language_model_prefill (lm, rm_text, NULL);
-  g_free (rm_text);
 }
 
 static gchar *
@@ -268,12 +144,9 @@ main (int argc, char **argv)
   GOptionContext *option_context = NULL;
   GArray *modules = NULL;
   ChatbotLanguageModel *language_model = NULL;
-  ChatbotToolManager *tool_manager = NULL;
   ChatbotChatData *chat_data = NULL;
   ChatbotTrainer *trainer = NULL;
   gboolean state_loaded = FALSE;
-
-  GeneratingData generating_data = { 0 };
 
   gchar *pending_system_prompt = NULL;
   gchar *pending_user_prompt = NULL;
@@ -348,16 +221,19 @@ main (int argc, char **argv)
       goto cleanup;
     }
 
-  tool_manager = chatbot_tool_manager_new ();
-  for (guint i = 0; i < modules->len; i++)
+  for (guint i = 0; CHATBOT_IS_TOOL_CALLABLE_LANGUAGE_MODEL (language_model)
+                    && (i < modules->len);
+       i++)
     {
       Module module;
 
       module = g_array_index (modules, Module, i);
       if (!CHATBOT_IS_TOOL (module.module))
         continue;
-      chatbot_tool_manager_add_tool (tool_manager,
-                                     CHATBOT_TOOL (module.module));
+      if (!chatbot_tool_callable_language_model_add_tool (
+              CHATBOT_TOOL_CALLABLE_LANGUAGE_MODEL (language_model),
+              CHATBOT_TOOL (module.module), &error))
+        goto cleanup;
     }
 
   if (state_file)
@@ -369,15 +245,8 @@ main (int argc, char **argv)
                          "Continuing with default state.\n");
     }
 
-  generating_data.tool_manager = tool_manager;
   g_signal_connect (language_model, "generating", G_CALLBACK (generating),
-                    &generating_data);
-  g_signal_connect (CHATBOT_TOOL (tool_manager), "stdin",
-                    G_CALLBACK (tool_mgr_stdin), language_model);
-  g_signal_connect (CHATBOT_TOOL (tool_manager), "stdout",
-                    G_CALLBACK (tool_mgr_stdout), language_model);
-  g_signal_connect (CHATBOT_TOOL (tool_manager), "stderr",
-                    G_CALLBACK (tool_mgr_stderr), language_model);
+                    NULL);
 
   if (system_prompt_file)
     {
@@ -406,25 +275,20 @@ main (int argc, char **argv)
 
       printf ("User: ");
       fflush (stdout);
-      if (!generating_data.is_command_handling)
+      pending_user_prompt = g_strstrip (read_user_input ());
+      if (pending_user_prompt[0] == '!')
         {
-          pending_user_prompt = g_strstrip (read_user_input ());
-          if (pending_user_prompt[0] == '!')
+          const gchar *command = pending_user_prompt + 1;
+          if (!strcmp (command, "exit"))
             {
-              const gchar *command = pending_user_prompt + 1;
-              if (!strcmp (command, "exit"))
-                {
-                  g_free (pending_user_prompt);
-                  g_clear_pointer (&pending_system_prompt, g_free);
-                  g_strv_builder_unref (builder);
-                  break;
-                }
+              g_free (pending_user_prompt);
+              g_clear_pointer (&pending_system_prompt, g_free);
+              g_strv_builder_unref (builder);
+              break;
             }
-          g_strv_builder_add_many (builder, "user", pending_user_prompt, NULL);
-          chatbot_chat_data_append (chat_data, "user", pending_user_prompt);
         }
-      else
-        generating_data.is_command_handling = FALSE;
+      g_strv_builder_add_many (builder, "user", pending_user_prompt, NULL);
+      chatbot_chat_data_append (chat_data, "user", pending_user_prompt);
       g_strv_builder_add (builder, "assistant");
 
       role_and_messages = g_strv_builder_end (builder);
@@ -435,7 +299,6 @@ main (int argc, char **argv)
                                            &error))
         goto loop_cleanup;
 
-      generating_data.is_firstline = TRUE;
       printf ("Assistant: ");
       fflush (stdout);
       generated = chatbot_language_model_generate (language_model, &error);
@@ -462,7 +325,6 @@ main (int argc, char **argv)
 
   if (trainer || training_module_path)
     {
-      g_clear_object (&tool_manager);
       g_clear_object (&language_model);
       g_clear_pointer (&modules, g_array_unref);
 
@@ -495,7 +357,6 @@ main (int argc, char **argv)
 cleanup:
   g_clear_object (&trainer);
   g_clear_object (&chat_data);
-  g_clear_object (&tool_manager);
   g_clear_object (&language_model);
   g_clear_pointer (&modules, g_array_unref);
   g_clear_pointer (&option_context, g_option_context_free);
