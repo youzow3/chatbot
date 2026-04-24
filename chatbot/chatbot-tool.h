@@ -83,6 +83,8 @@ struct _ChatbotToolInterface
   GTypeInterface iface;
   const ChatbotToolFunction *const *(*get_function_definitions) (
       ChatbotTool *tool);
+  const gchar *(*get_name) (ChatbotTool *tool);
+  const gchar *(*get_description) (ChatbotTool *tool);
   GVariant *(*call_function) (ChatbotTool *tool, const gchar *function_name,
                               GVariant *parameters,
                               ChatbotLanguageModel *language_model,

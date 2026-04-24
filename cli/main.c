@@ -305,6 +305,7 @@ main (int argc, char **argv)
       if (generated == NULL)
         goto loop_cleanup;
       chatbot_chat_data_append (chat_data, "assistant", generated);
+      printf ("\n");
 
     loop_cleanup:
       g_free (generated);
