@@ -28,6 +28,7 @@ enum
   PROP_RAW_PARAMETER = 1,
   PROP_PARAMETER,
   PROP_NAME,
+  PROP_DESCRIPTION,
   N_PROPERTIES
 };
 
@@ -40,17 +41,27 @@ typedef struct
   gchar *raw_parameter;
   GHashTable *parameter;
   gchar *name;
+  gchar *description;
 } ChatbotModulePrivate;
 
-static void chatbot_module_initable_init (GInitableIface *iface);
+static void chatbot_module_initable_iface_init (GInitableIface *iface);
 
 G_DEFINE_TYPE_EXTENDED (ChatbotModule, chatbot_module, G_TYPE_OBJECT, 0,
                         G_ADD_PRIVATE (ChatbotModule) G_IMPLEMENT_INTERFACE (
-                            G_TYPE_INITABLE, chatbot_module_initable_init));
+                            G_TYPE_INITABLE,
+                            chatbot_module_initable_iface_init));
+
+static gboolean
+chatbot_module_initable_init (GInitable *initable, GCancellable *cancellable,
+                              GError **error)
+{
+  return TRUE;
+}
 
 static void
-chatbot_module_initable_init (GInitableIface *iface)
+chatbot_module_initable_iface_init (GInitableIface *iface)
 {
+  iface->init = chatbot_module_initable_init;
 }
 
 static void
@@ -72,6 +83,10 @@ chatbot_module_set_property (GObject *object, guint property_id,
       break;
     case PROP_NAME:
       g_clear_pointer (&priv->name, g_free);
+      priv->name = g_value_dup_string (value);
+      break;
+    case PROP_DESCRIPTION:
+      g_clear_pointer (&priv->description, g_free);
       priv->name = g_value_dup_string (value);
       break;
     default:
@@ -97,6 +112,9 @@ chatbot_module_get_property (GObject *object, guint property_id, GValue *value,
       break;
     case PROP_NAME:
       g_value_set_string (value, priv->name);
+      break;
+    case PROP_DESCRIPTION:
+      g_value_set_string (value, priv->description);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -187,6 +205,15 @@ chatbot_module_class_init (ChatbotModuleClass *klass)
   properties[PROP_NAME]
       = g_param_spec_string ("name", "name", "module name", NULL,
                              G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
+
+  /**
+   * Module:description:
+   *
+   * Description of the module.
+   */
+  properties[PROP_DESCRIPTION] = g_param_spec_string (
+      "description", "description", "module description", NULL,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
 
   g_object_class_install_properties (object_class, N_PROPERTIES, properties);
 }

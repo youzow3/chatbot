@@ -196,24 +196,6 @@ static void
 chatbot_tool_default_init (ChatbotToolInterface *iface)
 {
   /**
-   * ChatbotTool:name:
-   *
-   * Tool name
-   */
-  g_object_interface_install_property (
-      iface, g_param_spec_string ("name", "name", "tool name", NULL,
-                                  G_PARAM_READABLE));
-
-  /**
-   * ChatbotTool:description
-   *
-   * Tool description
-   */
-  g_object_interface_install_property (
-      iface, g_param_spec_string ("description", "description",
-                                  "tool description", NULL, G_PARAM_READABLE));
-
-  /**
    * ChatbotTool:functions
    *
    * Function definitions tool provides
