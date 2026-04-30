@@ -27,8 +27,6 @@ enum
 {
   PROP_RAW_PARAMETER = 1,
   PROP_PARAMETER,
-  PROP_NAME,
-  PROP_DESCRIPTION,
   N_PROPERTIES
 };
 
@@ -40,8 +38,6 @@ typedef struct
 {
   gchar *raw_parameter;
   GHashTable *parameter;
-  gchar *name;
-  gchar *description;
 } ChatbotModulePrivate;
 
 static void chatbot_module_initable_iface_init (GInitableIface *iface);
@@ -81,14 +77,6 @@ chatbot_module_set_property (GObject *object, guint property_id,
       g_clear_pointer (&priv->parameter, g_hash_table_unref);
       priv->parameter = g_value_dup_boxed (value);
       break;
-    case PROP_NAME:
-      g_clear_pointer (&priv->name, g_free);
-      priv->name = g_value_dup_string (value);
-      break;
-    case PROP_DESCRIPTION:
-      g_clear_pointer (&priv->description, g_free);
-      priv->name = g_value_dup_string (value);
-      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -109,12 +97,6 @@ chatbot_module_get_property (GObject *object, guint property_id, GValue *value,
       break;
     case PROP_PARAMETER:
       g_value_set_boxed (value, priv->parameter);
-      break;
-    case PROP_NAME:
-      g_value_set_string (value, priv->name);
-      break;
-    case PROP_DESCRIPTION:
-      g_value_set_string (value, priv->description);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -139,7 +121,6 @@ chatbot_module_finalize (GObject *object)
   ChatbotModulePrivate *priv
       = chatbot_module_get_instance_private (CHATBOT_MODULE (object));
 
-  g_clear_pointer (&priv->name, g_free);
   g_clear_pointer (&priv->raw_parameter, g_free);
 
   G_OBJECT_CLASS (chatbot_module_parent_class)->finalize (object);
@@ -157,11 +138,10 @@ chatbot_module_constructed (GObject *object)
   for (gchar **iter = kv_array; *iter != NULL; iter++)
     {
       gchar **kv = g_strsplit (*iter, "=", 2); // "k=v" into {k, v}
-      if (!g_hash_table_insert (priv->parameter, kv[0], kv[1]))
-        {
-          g_warning ("Failed to insert parameter \"%s\".", kv[0]);
-          g_strfreev (kv);
-        }
+      if (!g_hash_table_insert (priv->parameter, g_strdup (kv[0]),
+                                g_strdup (kv[1])))
+        g_warning ("Failed to insert parameter \"%s\".", kv[0]);
+      g_strfreev (kv);
     }
 
   g_strfreev (kv_array);
@@ -197,24 +177,6 @@ chatbot_module_class_init (ChatbotModuleClass *klass)
       = g_param_spec_boxed ("parameter", "parameter", "parameter key-value",
                             G_TYPE_HASH_TABLE, G_PARAM_READABLE);
 
-  /**
-   * Module:name:
-   *
-   * Name of the module.
-   */
-  properties[PROP_NAME]
-      = g_param_spec_string ("name", "name", "module name", NULL,
-                             G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
-
-  /**
-   * Module:description:
-   *
-   * Description of the module.
-   */
-  properties[PROP_DESCRIPTION] = g_param_spec_string (
-      "description", "description", "module description", NULL,
-      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
-
   g_object_class_install_properties (object_class, N_PROPERTIES, properties);
 }
 
@@ -244,18 +206,37 @@ chatbot_module_new (GType type, const gchar *parameter, GError **error)
 }
 
 /**
- * chatbot_module_get_name: (get-property name)
+ * chatbot_module_get_name:
  *
  * Get the module name.
  *
- * Returns: [property@Module:name]
+ * Returns: Module name
  */
 const gchar *
 chatbot_module_get_name (ChatbotModule *module)
 {
-  ChatbotModulePrivate *priv = chatbot_module_get_instance_private (module);
+  ChatbotModuleClass *klass;
   g_return_val_if_fail (CHATBOT_IS_MODULE (module), NULL);
-  return priv->name;
+  klass = CHATBOT_MODULE_GET_CLASS (module);
+  g_return_val_if_fail (klass->get_name != NULL, NULL);
+  return klass->get_name (module);
+}
+
+/**
+ * chatbot_module_get_description:
+ *
+ * Get the module description.
+ *
+ * Returns: Module description
+ */
+const gchar *
+chatbot_module_get_description (ChatbotModule *module)
+{
+  ChatbotModuleClass *klass;
+  g_return_val_if_fail (CHATBOT_IS_MODULE (module), NULL);
+  klass = CHATBOT_MODULE_GET_CLASS (module);
+  g_return_val_if_fail (klass->get_name != NULL, NULL);
+  return klass->get_name (module);
 }
 
 /**
@@ -268,7 +249,8 @@ chatbot_module_get_name (ChatbotModule *module)
 GHashTable *
 chatbot_module_get_parameter (ChatbotModule *module)
 {
-  ChatbotModulePrivate *priv = chatbot_module_get_instance_private (module);
+  ChatbotModulePrivate *priv;
   g_return_val_if_fail (CHATBOT_IS_MODULE (module), NULL);
+  priv = chatbot_module_get_instance_private (module);
   return priv->parameter;
 }

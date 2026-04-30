@@ -25,11 +25,14 @@ G_DECLARE_DERIVABLE_TYPE (ChatbotModule, chatbot_module, CHATBOT, MODULE,
 struct _ChatbotModuleClass
 {
   GObjectClass parent_class;
+  const gchar *(*get_name) (ChatbotModule *module);
+  const gchar *(*get_description) (ChatbotModule *module);
 };
 
 ChatbotModule *chatbot_module_new (GType type, const gchar *parameter,
                                    GError **error);
 const gchar *chatbot_module_get_name (ChatbotModule *module);
+const gchar *chatbot_module_get_description (ChatbotModule *module);
 GHashTable *chatbot_module_get_parameter (ChatbotModule *module);
 
 G_END_DECLS

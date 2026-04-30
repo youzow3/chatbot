@@ -39,7 +39,7 @@ G_DEFINE_BOXED_TYPE (ChatbotToolArg, chatbot_tool_arg, chatbot_tool_arg_ref,
  */
 ChatbotToolArg *
 chatbot_tool_arg_new (const gchar *name, const gchar *description,
-                      const gchar *type, gboolean required)
+                      const gchar *type)
 {
   ChatbotToolArg *arg;
 
@@ -51,7 +51,6 @@ chatbot_tool_arg_new (const gchar *name, const gchar *description,
   arg->name = g_strdup (name);
   arg->description = g_strdup (description);
   arg->type = g_strdup (type);
-  arg->required = required;
   arg->ref = 0;
   return arg;
 }
@@ -227,40 +226,6 @@ chatbot_tool_new (GType type)
 }
 
 /**
- * chatbot_tool_get_name: (get-property name):
- *
- * Gets tool name
- *
- * Returns: tool name
- */
-const gchar *
-chatbot_tool_get_name (ChatbotTool *tool)
-{
-  ChatbotToolInterface *iface;
-  g_return_val_if_fail (CHATBOT_IS_TOOL (tool), NULL);
-  iface = CHATBOT_TOOL_GET_IFACE (tool);
-  g_return_val_if_fail (iface->get_name != NULL, NULL);
-  return iface->get_name (tool);
-}
-
-/**
- * chatbot_tool_get_description: (get-property description):
- *
- * Gets tool description
- *
- * Returns: tool description
- */
-const gchar *
-chatbot_tool_get_description (ChatbotTool *tool)
-{
-  ChatbotToolInterface *iface;
-  g_return_val_if_fail (CHATBOT_IS_TOOL (tool), NULL);
-  iface = CHATBOT_TOOL_GET_IFACE (tool);
-  g_return_val_if_fail (iface->get_description != NULL, NULL);
-  return iface->get_description (tool);
-}
-
-/**
  * chatbot_tool_get_function_definitions: (get-property functions):
  *
  * Gets [property@ChatbotTool:functions] of the instance. This should be more
@@ -300,9 +265,9 @@ chatbot_tool_get_function_definitions (ChatbotTool *tool)
  *
  * Returns:Tuple of return values
  */
-GVariant *
+GVariantDict *
 chatbot_tool_call_function (ChatbotTool *tool, const gchar *function_name,
-                            GVariant *parameters,
+                            GVariantDict *parameters,
                             ChatbotLanguageModel *language_model,
                             GCancellable *cancellable, GError **error)
 {
@@ -310,6 +275,7 @@ chatbot_tool_call_function (ChatbotTool *tool, const gchar *function_name,
 
   g_return_val_if_fail (CHATBOT_IS_TOOL (tool), NULL);
   g_return_val_if_fail (function_name != NULL, NULL);
+  g_return_val_if_fail (parameters != NULL, NULL);
   g_return_val_if_fail (CHATBOT_IS_LANGUAGE_MODEL (language_model)
                             || (language_model == NULL),
                         NULL);

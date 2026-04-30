@@ -35,19 +35,20 @@ GType chatbot_tool_arg_get_type (void) G_GNUC_CONST;
  * @type: GVariant type
  * @required: TRUE if the arg is required
  * @ref: -1 if the structure is statically defined
+ *
+ * Valid basic type of @type is "b", "x", "d", "s", and "a".
  */
 typedef struct _ChatbotToolArg
 {
   gchar *name;
   gchar *description;
   gchar *type;
-  gboolean required;
   guint ref;
 } ChatbotToolArg;
 
 ChatbotToolArg *chatbot_tool_arg_new (const gchar *name,
                                       const gchar *description,
-                                      const gchar *type, gboolean required);
+                                      const gchar *type);
 ChatbotToolArg *chatbot_tool_arg_ref (ChatbotToolArg *arg);
 void chatbot_tool_arg_unref (ChatbotToolArg *arg);
 
@@ -83,24 +84,21 @@ struct _ChatbotToolInterface
   GTypeInterface iface;
   const ChatbotToolFunction *const *(*get_function_definitions) (
       ChatbotTool *tool);
-  const gchar *(*get_name) (ChatbotTool *tool);
-  const gchar *(*get_description) (ChatbotTool *tool);
-  GVariant *(*call_function) (ChatbotTool *tool, const gchar *function_name,
-                              GVariant *parameters,
-                              ChatbotLanguageModel *language_model,
-                              GCancellable *cancellable, GError **error);
+  GVariantDict *(*call_function) (ChatbotTool *tool,
+                                  const gchar *function_name,
+                                  GVariantDict *parameters,
+                                  ChatbotLanguageModel *language_model,
+                                  GCancellable *cancellable, GError **error);
 };
 
 gpointer chatbot_tool_new (GType type);
-const gchar *chatbot_tool_get_name (ChatbotTool *tool);
-const gchar *chatbot_tool_get_description (ChatbotTool *tool);
 const ChatbotToolFunction *const *
 chatbot_tool_get_function_definitions (ChatbotTool *tool);
-GVariant *chatbot_tool_call_function (ChatbotTool *tool,
-                                      const gchar *function_name,
-                                      GVariant *parameters,
-                                      ChatbotLanguageModel *language_model,
-                                      GCancellable *cancellable,
-                                      GError **error);
+GVariantDict *chatbot_tool_call_function (ChatbotTool *tool,
+                                          const gchar *function_name,
+                                          GVariantDict *parameters,
+                                          ChatbotLanguageModel *language_model,
+                                          GCancellable *cancellable,
+                                          GError **error);
 
 G_END_DECLS
