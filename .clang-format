@@ -1,7 +1,7 @@
 ---
 Language:        Cpp
+AlignAfterOpenBracket: true
 AccessModifierOffset: -2
-AlignAfterOpenBracket: Align
 AlignArrayOfStructures: None
 AlignConsecutiveAssignments:
   Enabled:         false
@@ -68,11 +68,13 @@ AlignConsecutiveTableGenDefinitionColons:
 AlignEscapedNewlines: Right
 AlignOperands:   Align
 AlignTrailingComments:
+  AlignPPAndNotPP: true
   Kind:            Always
   OverEmptyLines:  0
 AllowAllArgumentsOnNextLine: true
 AllowAllParametersOfDeclarationOnNextLine: true
 AllowBreakBeforeNoexceptSpecifier: Never
+AllowBreakBeforeQtProperty: false
 AllowShortBlocksOnASingleLine: Never
 AllowShortCaseExpressionOnASingleLine: true
 AllowShortCaseLabelsOnASingleLine: false
@@ -88,8 +90,10 @@ AlwaysBreakBeforeMultilineStrings: false
 AttributeMacros:
   - __capability
 BinPackArguments: true
+BinPackLongBracedList: true
 BinPackParameters: BinPack
 BitFieldColonSpacing: Both
+BracedInitializerIndentWidth: -1
 BraceWrapping:
   AfterCaseLabel:  true
   AfterClass:      true
@@ -103,7 +107,7 @@ BraceWrapping:
   AfterUnion:      true
   BeforeCatch:     true
   BeforeElse:      true
-  BeforeLambdaBody: false
+  BeforeLambdaBody: true
   BeforeWhile:     true
   IndentBraces:    true
   SplitEmptyFunction: true
@@ -112,12 +116,23 @@ BraceWrapping:
 BreakAdjacentStringLiterals: true
 BreakAfterAttributes: Leave
 BreakAfterJavaFieldAnnotations: false
+BreakAfterOpenBracketBracedList: false
+BreakAfterOpenBracketFunction: false
+BreakAfterOpenBracketIf: false
+BreakAfterOpenBracketLoop: false
+BreakAfterOpenBracketSwitch: false
 BreakAfterReturnType: AllDefinitions
 BreakArrays:     true
 BreakBeforeBinaryOperators: All
+BreakBeforeCloseBracketBracedList: false
+BreakBeforeCloseBracketFunction: false
+BreakBeforeCloseBracketIf: false
+BreakBeforeCloseBracketLoop: false
+BreakBeforeCloseBracketSwitch: false
 BreakBeforeConceptDeclarations: Always
 BreakBeforeBraces: GNU
 BreakBeforeInlineASMColon: OnlyMultiline
+BreakBeforeTemplateCloser: false
 BreakBeforeTernaryOperators: true
 BreakBinaryOperations: Never
 BreakConstructorInitializers: BeforeColon
@@ -130,11 +145,12 @@ CommentPragmas:  '^ IWYU pragma:'
 CompactNamespaces: false
 ConstructorInitializerIndentWidth: 4
 ContinuationIndentWidth: 4
-Cpp11BracedListStyle: false
+Cpp11BracedListStyle: Block
 DerivePointerAlignment: false
 DisableFormat:   false
 EmptyLineAfterAccessModifier: Never
 EmptyLineBeforeAccessModifier: LogicalBlock
+EnumTrailingComma: Leave
 ExperimentalAutoDetectBinPacking: false
 FixNamespaceComments: false
 ForEachMacros:
@@ -174,10 +190,16 @@ InsertNewlineAtEOF: false
 InsertTrailingCommas: None
 IntegerLiteralSeparator:
   Binary:          0
-  BinaryMinDigits: 0
+  BinaryMinDigitsInsert: 0
+  BinaryMaxDigitsRemove: 0
   Decimal:         0
-  DecimalMinDigits: 0
+  DecimalMinDigitsInsert: 0
+  DecimalMaxDigitsRemove: 0
   Hex:             0
+  HexMinDigitsInsert: 0
+  HexMaxDigitsRemove: 0
+  BinaryMinDigits: 0
+  DecimalMinDigits: 0
   HexMinDigits:    0
 JavaScriptQuotes: Leave
 JavaScriptWrapImports: true
@@ -193,11 +215,17 @@ MacroBlockEnd:   ''
 MainIncludeChar: Quote
 MaxEmptyLinesToKeep: 1
 NamespaceIndentation: None
+NumericLiteralCase:
+  ExponentLetter:  Leave
+  HexDigit:        Leave
+  Prefix:          Leave
+  Suffix:          Leave
 ObjCBinPackProtocolList: Auto
 ObjCBlockIndentWidth: 2
 ObjCBreakBeforeNestedBlockParam: true
 ObjCSpaceAfterProperty: false
 ObjCSpaceBeforeProtocolList: true
+OneLineFormatOffRegex: ''
 PackConstructorInitializers: BinPack
 PenaltyBreakAssignment: 2
 PenaltyBreakBeforeFirstCallParameter: 19
@@ -225,11 +253,15 @@ RequiresExpressionIndentation: OuterScope
 SeparateDefinitionBlocks: Leave
 ShortNamespaceLines: 1
 SkipMacroDefinitionBody: false
-SortIncludes:    CaseSensitive
+SortIncludes:
+  Enabled:         true
+  IgnoreCase:      false
+  IgnoreExtension: false
 SortJavaStaticImport: Before
 SortUsingDeclarations: LexicographicNumeric
 SpaceAfterCStyleCast: false
 SpaceAfterLogicalNot: false
+SpaceAfterOperatorKeyword: false
 SpaceAfterTemplateKeyword: true
 SpaceAroundPointerQualifiers: Default
 SpaceBeforeAssignmentOperators: true
@@ -245,6 +277,7 @@ SpaceBeforeParensOptions:
   AfterFunctionDefinitionName: false
   AfterFunctionDeclarationName: false
   AfterIfMacros:   false
+  AfterNot:        false
   AfterOverloadedOperator: false
   AfterPlacementOperator: true
   AfterRequiresInClause: false
@@ -252,7 +285,7 @@ SpaceBeforeParensOptions:
   BeforeNonEmptyParentheses: false
 SpaceBeforeRangeBasedForLoopColon: true
 SpaceBeforeSquareBrackets: false
-SpaceInEmptyBlock: false
+SpaceInEmptyBraces: Never
 SpacesBeforeTrailingComments: 1
 SpacesInAngles:  Never
 SpacesInContainerLiterals: true

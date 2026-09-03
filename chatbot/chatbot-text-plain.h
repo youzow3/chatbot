@@ -14,13 +14,11 @@
  */
 #pragma once
 
-#include <chatbot/chatbot-agent.h>
 #include <chatbot/chatbot-data.h>
-#include <chatbot/chatbot-error.h>
-#include <chatbot/chatbot-language-model.h>
-#include <chatbot/chatbot-message-array.h>
-#include <chatbot/chatbot-message-role.h>
-#include <chatbot/chatbot-message.h>
-#include <chatbot/chatbot-module.h>
-#include <chatbot/chatbot-text-plain.h>
-#include <chatbot/chatbot-trainer.h>
+
+#define CHATBOT_TYPE_TEXT_PLAIN chatbot_text_plain_get_type ()
+G_DECLARE_FINAL_TYPE (ChatbotTextPlain, chatbot_text_plain, CHATBOT,
+                      TEXT_PLAIN, GObject);
+
+ChatbotTextPlain *chatbot_text_plain_new (const gchar *text);
+const gchar *chatbot_text_plain_get_text(ChatbotTextPlain *text_plain);

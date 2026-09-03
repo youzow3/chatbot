@@ -109,12 +109,11 @@ static const GOptionEntry option_entries[N_ARGS] = {
   G_OPTION_ENTRY_NULL
 };
 
-static gboolean
+static void
 generating (ChatbotLanguageModel *lm, const gchar *text, gpointer user_data)
 {
   printf ("%s", text);
   fflush (stdout);
-  return TRUE;
 }
 
 static gchar *
@@ -144,7 +143,7 @@ main (int argc, char **argv)
   GOptionContext *option_context = NULL;
   GArray *modules = NULL;
   ChatbotLanguageModel *language_model = NULL;
-  ChatbotChatData *chat_data = NULL;
+  ChatbotMessageArray *chat_data = NULL;
   ChatbotTrainer *trainer = NULL;
   gboolean state_loaded = FALSE;
 
@@ -259,7 +258,7 @@ main (int argc, char **argv)
   if (system_prompt && !state_loaded)
     pending_system_prompt = g_strdup (system_prompt);
 
-  chat_data = chatbot_chat_data_new ();
+  chat_data = chatbot_message_array_new();
 
   // Main Loop
   while (TRUE)
@@ -267,11 +266,15 @@ main (int argc, char **argv)
       GStrv role_and_messages = NULL;
       gchar *chat_template = NULL;
       gchar *generated = NULL;
-      GStrvBuilder *builder = g_strv_builder_new ();
+      ChatbotMessage *user_message;
+      ChatbotMessageArray *messages;
 
       if (pending_system_prompt)
-        g_strv_builder_add_many (builder, "system", pending_system_prompt,
-                                 NULL);
+        {
+		ChatbotMessage *system_message = chatbot_message_new_take(CHATBOT_MESSAGE_ROLE_SYSTEM, chatbot_text_data_new(pending_system_prompt));
+		chatbot_message_array_push(messages, system_message);
+		chatbot_message_array_push_take(messages, system_message);
+        }
 
       printf ("User: ");
       fflush (stdout);
@@ -283,28 +286,19 @@ main (int argc, char **argv)
             {
               g_free (pending_user_prompt);
               g_clear_pointer (&pending_system_prompt, g_free);
-              g_strv_builder_unref (builder);
               break;
             }
         }
-      g_strv_builder_add_many (builder, "user", pending_user_prompt, NULL);
-      chatbot_chat_data_append (chat_data, "user", pending_user_prompt);
-      g_strv_builder_add (builder, "assistant");
 
-      role_and_messages = g_strv_builder_end (builder);
-      chat_template = chatbot_language_model_apply_chat_template (
-          language_model, role_and_messages);
-
-      if (!chatbot_language_model_prefill (language_model, chat_template,
-                                           &error))
-        goto loop_cleanup;
+      user_message = chatbot_message_new_take(CHATBOT_MESSAGE_ROLE_USER, chatbot_text_data_new(pending_user_prompt));
 
       printf ("Assistant: ");
       fflush (stdout);
-      generated = chatbot_language_model_generate (language_model, &error);
+      generated = chatbot_language_model_generate (language_model, messages,
+                                                   NULL, &error);
       if (generated == NULL)
         goto loop_cleanup;
-      chatbot_chat_data_append (chat_data, "assistant", generated);
+      chatbot_message_array_add(chat_data, chatbot_message_new_take(CHATBOT_MESSAGE_ROLE_ASSISTANT, chatbot_text_data_new(generated)));
       printf ("\n");
 
     loop_cleanup:
@@ -313,7 +307,6 @@ main (int argc, char **argv)
       g_clear_pointer (&pending_system_prompt, g_free);
       g_strfreev (role_and_messages);
       g_free (chat_template);
-      g_strv_builder_unref (builder);
 
       if (error)
         goto cleanup;
@@ -349,7 +342,7 @@ main (int argc, char **argv)
         }
 
       if (!chatbot_trainer_train (
-              trainer, (ChatbotData *[]){ CHATBOT_DATA (chat_data) }, 1, NULL,
+              trainer, (ChatbotMessageArray *[]){ chat_data }, 1, NULL,
               &error))
         goto cleanup;
     }
@@ -357,7 +350,7 @@ main (int argc, char **argv)
   ret_code = 0;
 cleanup:
   g_clear_object (&trainer);
-  g_clear_object (&chat_data);
+  g_clear_pointer(&chat_data, chatbot_message_array_free);
   g_clear_object (&language_model);
   g_clear_pointer (&modules, g_array_unref);
   g_clear_pointer (&option_context, g_option_context_free);

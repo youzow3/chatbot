@@ -14,21 +14,21 @@
  */
 #pragma once
 
-#include <glib-object.h>
+#include <chatbot/chatbot-agent.h>
 
 G_BEGIN_DECLS
 
-#define CHATBOT_TYPE_CHAT_DATA chatbot_chat_data_get_type ()
-G_DECLARE_DERIVABLE_TYPE (ChatbotChatData, chatbot_chat_data, CHATBOT,
-                          CHAT_DATA, GObject);
+#define CHATBOT_TYPE_MULTI_AGENT chatbot_multi_agent_get_type ()
+G_DECLARE_INTERFACE (ChatbotMultiAgent, chatbot_multi_agent, CHATBOT,
+                     MULTI_AGENT, ChatbotAgent);
 
-struct _ChatbotChatDataClass
+struct _ChatbotMultiAgentInterface
 {
-  GObjectClass parent_class;
+  GTypeInterface iface;
+  ChatbotAgent **(*get_agents) (ChatbotMultiAgent *multi_agent, gsize *len);
 };
 
-ChatbotChatData *chatbot_chat_data_new (void);
-void chatbot_chat_data_append (ChatbotChatData *chat_data, const gchar *role,
-                               const gchar *message);
+ChatbotAgent **chatbot_multi_agent_get_agents (ChatbotMultiAgent *multi_agent,
+                                               gsize *len);
 
 G_END_DECLS

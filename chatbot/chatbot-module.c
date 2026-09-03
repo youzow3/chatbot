@@ -16,7 +16,7 @@
 /**
  * ChatbotModule:
  *
- * Base class for any modules.
+ * Base class for any module.
  */
 
 #include "chatbot-module.h"
@@ -160,7 +160,7 @@ chatbot_module_class_init (ChatbotModuleClass *klass)
   object_class->constructed = chatbot_module_constructed;
 
   /**
-   * Module:_parameter:
+   * ChatbotModule:raw_parameter:
    *
    * raw module parameter to construct [property@Module:parameter]
    */
@@ -169,7 +169,7 @@ chatbot_module_class_init (ChatbotModuleClass *klass)
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_WRITABLE);
 
   /**
-   * Module:parameter:
+   * ChatbotModule:parameter:
    *
    * Key-Value based module parameter.
    */
@@ -191,24 +191,25 @@ chatbot_module_init (ChatbotModule *module)
 
 /**
  * chatbot_module_new:
- * @type GType which is module implementation
- * @parameter module parameter
- * @error location to store the error
+ * @type: A #GType.
+ * @parameter: module parameter.
+ * @error: (out) (optional): location to store the error.
  *
- * Create instance from GType.
+ * Constructs instance.
  *
- * Returns: newly created instance
+ * Returns: (nullable): newly created instance
  */
-ChatbotModule *
+gpointer
 chatbot_module_new (GType type, const gchar *parameter, GError **error)
 {
+  g_return_val_if_fail(g_type_is_a(type, CHATBOT_TYPE_MODULE), NULL);
   return g_initable_new (type, NULL, error, "raw_parameter", parameter, NULL);
 }
 
 /**
  * chatbot_module_get_name:
  *
- * Get the module name.
+ * Gets the module name.
  *
  * Returns: Module name
  */
@@ -225,7 +226,7 @@ chatbot_module_get_name (ChatbotModule *module)
 /**
  * chatbot_module_get_description:
  *
- * Get the module description.
+ * Gets the module description.
  *
  * Returns: Module description
  */
@@ -240,9 +241,9 @@ chatbot_module_get_description (ChatbotModule *module)
 }
 
 /**
- * chatbot_module_get_parameter: (get-property parameter)
+ * chatbot_module_get_parameter:
  *
- * Get the parameter key-value.
+ * Gets the parameter key-value.
  *
  * Returns: (transfer none): [property@Module:parameter]
  */

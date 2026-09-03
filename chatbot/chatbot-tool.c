@@ -16,178 +16,110 @@
 /**
  * ChatbotTool:
  *
- * External tool interface for Chatbot.
- *
- * Implementing all methods is required.
+ * Interface to define tool used by language models.
  */
 
-#include "chatbot-tool.h"
-
-G_DEFINE_BOXED_TYPE (ChatbotToolArg, chatbot_tool_arg, chatbot_tool_arg_ref,
-                     chatbot_tool_arg_unref);
-
-/**
- * chatbot_tool_arg_new:
- * @name: arg name
- * @description: arg description
- * @type: GVariant compatible type signature
- * @required: TRUE if required arg, FALSE for not.
- *
- * Helper function to dynamically allocate [struct@ChatbotToolArg].
- *
- * Returns: Newly created floating [struct@ChatbotToolArg]
- */
-ChatbotToolArg *
-chatbot_tool_arg_new (const gchar *name, const gchar *description,
-                      const gchar *type)
-{
-  ChatbotToolArg *arg;
-
-  g_return_val_if_fail (name != NULL, NULL);
-  g_return_val_if_fail (description != NULL, NULL);
-  g_return_val_if_fail (g_variant_is_signature (type), NULL);
-
-  arg = g_new (ChatbotToolArg, 1);
-  arg->name = g_strdup (name);
-  arg->description = g_strdup (description);
-  arg->type = g_strdup (type);
-  arg->ref = 0;
-  return arg;
-}
+#include <chatbot/chatbot-tool.h>
 
 /**
  * chatbot_tool_arg_ref:
- * @arg: arg
+ * @arg: self
  *
- * Returns: @arg
+ * Increments the ref count.
+ *
+ * Increments the ref count or no-op if @arg is statically allocated.
  */
-ChatbotToolArg *
+void
 chatbot_tool_arg_ref (ChatbotToolArg *arg)
 {
-  g_return_val_if_fail (arg != NULL, NULL);
-  if (arg->ref != -1)
-    arg->ref++;
-  return arg;
+  g_return_if_fail (arg != NULL);
+
+  if (arg->ref == -1)
+    return;
+  arg->ref++;
 }
 
+/**
+ * chatbot_tool_arg_unref:
+ * @arg: self
+ *
+ * Decrements the ref count.
+ *
+ * Decrements the ref count and frees up @arg, `name`, `signature`, and
+ * `description` in @arg when ref count reached to 0.
+ *
+ * No-op if @arg is statically allocated.
+ */
 void
 chatbot_tool_arg_unref (ChatbotToolArg *arg)
 {
   g_return_if_fail (arg != NULL);
+
   if (arg->ref == -1)
     return;
-  if (--arg->ref == 0)
-    {
-      g_free (arg->name);
-      g_free (arg->description);
-      g_free (arg->type);
-      g_free (arg);
-    }
-}
-
-G_DEFINE_BOXED_TYPE (ChatbotToolFunction, chatbot_tool_function,
-                     chatbot_tool_function_ref, chatbot_tool_function_unref);
-
-/**
- * chatbot_tool_function_new:
- * @name: function name
- * @description: function description
- * @input_schemas: (nullable) (array length=input_schemas_len): function input
- * schemas
- * @input_schemas_len: length of @input_schemas
- * @output_schemas: (nullable) (array length=output_schemas_len): function
- * output schemas
- * @output_schemas_len: length of @output_schemas
- *
- * Helper function to dynamically define [struct@ChatbotToolFunction].
- *
- * Returns: newly created floating [struct@ChatbotToolFunction]
- */
-ChatbotToolFunction *
-chatbot_tool_function_new (const gchar *name, const gchar *description,
-                           ChatbotToolArg **input_schemas,
-                           gsize input_schemas_len,
-                           ChatbotToolArg **output_schemas,
-                           gsize output_schemas_len)
-{
-  ChatbotToolFunction *function;
-
-  g_return_val_if_fail (name != NULL, NULL);
-  g_return_val_if_fail (description != NULL, NULL);
-  g_return_val_if_fail ((input_schemas_len == 0) || (input_schemas != NULL),
-                        NULL);
-  g_return_val_if_fail ((output_schemas_len == 0) || (output_schemas != NULL),
-                        NULL);
-
-  function = g_new (ChatbotToolFunction, 1);
-  function->name = g_strdup (name);
-  function->description = g_strdup (description);
-  function->input_schemas = g_new (ChatbotToolArg *, input_schemas_len + 1);
-  for (gsize i = 0; i < input_schemas_len; i++)
-    {
-      chatbot_tool_arg_ref (input_schemas[i]);
-      function->input_schemas[i] = input_schemas[i];
-    }
-  function->input_schemas[input_schemas_len] = NULL;
-  function->output_schemas = g_new (ChatbotToolArg *, output_schemas_len + 1);
-  for (gsize i = 0; i < output_schemas_len; i++)
-    {
-      chatbot_tool_arg_ref (output_schemas[i]);
-      function->output_schemas[i] = output_schemas[i];
-    }
-  function->output_schemas[output_schemas_len] = NULL;
-  function->ref = 0;
-  return function;
+  if (--arg->ref != 0)
+    return;
+  g_free (arg->name);
+  g_free (arg->signature);
+  g_free (arg->description);
+  g_free (arg);
 }
 
 /**
  * chatbot_tool_function_ref:
- * @function: function
+ * @func: self
  *
- * Returns: @function
+ * Increments the ref count.
+ *
+ * Increments the ref count or no-op if @func is statically allocated.
  */
-ChatbotToolFunction *
-chatbot_tool_function_ref (ChatbotToolFunction *function)
+void
+chatbot_tool_function_ref (ChatbotToolFunction *func)
 {
-  g_return_val_if_fail (function != NULL, NULL);
-  if (function->ref != -1)
-    function->ref++;
-  return function;
+  g_return_if_fail (func != NULL);
+  if (func->ref == -1)
+    return;
+  func->ref++;
 }
 
 /**
  * chatbot_tool_function_unref:
- * @function: function
+ * @func: self
+ *
+ * Decrements the ref count.
+ *
+ * Decrements the ref count and frees up @func, `name`, `title`, `description`
+ * and `inputs`, and `outputs` in @func when ref count reached to 0.
+ *
+ * No-op if @func is statically allocated.
  */
 void
-chatbot_tool_function_unref (ChatbotToolFunction *function)
+chatbot_tool_function_unref (ChatbotToolFunction *func)
 {
-  g_return_if_fail (function != NULL);
-  if (function->ref == -1)
+  g_return_if_fail (func != NULL);
+  if (func->ref == -1)
     return;
-  if (--function->ref == 0)
-    {
-      g_free (function->name);
-      g_free (function->description);
-      if (function->input_schemas)
-        for (ChatbotToolArg **i = function->input_schemas; *i; i++)
-          chatbot_tool_arg_unref (*i);
-      if (function->output_schemas)
-        for (ChatbotToolArg **i = function->output_schemas; *i; i++)
-          chatbot_tool_arg_unref (*i);
-      g_free (function->output_schemas);
-      g_free (function->input_schemas);
-      g_free (function);
-    }
+  if (--func->ref != 0)
+    return;
+  g_free (func->name);
+  g_free (func->title);
+  g_free (func->description);
+  for (gsize i = 0; (func->inputs != NULL) && (func->inputs[i] != NULL); i++)
+    chatbot_tool_arg_unref (func->inputs[i]);
+  g_free (func->inputs);
+  for (gsize i = 0; (func->outputs != NULL) && (func->outputs[i] != NULL); i++)
+    chatbot_tool_arg_unref (func->outputs[i]);
+  g_free (func->outputs);
+  g_free (func);
 }
 
 enum
 {
-  FUNCTIONS_CHANGED,
+  LIST_CHANGED,
   N_SIGNALS
 };
 
-int signals[N_SIGNALS];
+guint signals[N_SIGNALS];
 
 G_DEFINE_INTERFACE (ChatbotTool, chatbot_tool, CHATBOT_TYPE_MODULE);
 
@@ -195,95 +127,67 @@ static void
 chatbot_tool_default_init (ChatbotToolInterface *iface)
 {
   /**
-   * ChatbotTool:functions
+   * ChatbotTool::list-changed:
+   * @tool: self
    *
-   * Function definitions tool provides
-   */
-  g_object_interface_install_property (
-      iface,
-      g_param_spec_boxed ("functions", "functions", "function definitions",
-                          G_TYPE_PTR_ARRAY, G_PARAM_READABLE));
-
-  /**
-   * ChatbotTool::functions-changed:
+   * Emitted when available functions are changed.
    *
-   * Signal that emitted when [property@ChatbotTool:functions] changed.
+   * This signal should be compatible with MCP's `listChanged` notification.
    */
-  signals[FUNCTIONS_CHANGED]
-      = g_signal_new ("functions-changed", CHATBOT_TYPE_TOOL,
-                      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
+  signals[LIST_CHANGED]
+      = g_signal_new ("list-changed", CHATBOT_TYPE_TOOL, G_SIGNAL_RUN_FIRST, 0,
+                      NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
 /**
- * chatbot_tool_new:
+ * chatbot_tool_get_functions:
+ * @tool: self
  *
- * Currently just wrapper of g_object_new without properties.
+ * Gets available functions.
+ *
+ * Returns: (transfer none) (array zero-terminated=1): Available
+ * functions array.
  */
-gpointer
-chatbot_tool_new (GType type)
-{
-  return g_object_new (type, NULL);
-}
-
-/**
- * chatbot_tool_get_function_definitions: (get-property functions):
- *
- * Gets [property@ChatbotTool:functions] of the instance. This should be more
- * efficient than calling [method@G.Object.get_property] because this doesn't
- * need to get value from #GArray and #GValue.
- *
- * Returns: (array zero-terminated=1) (transfer none): Function definitions
- * array instance own
- */
-const ChatbotToolFunction *const *
-chatbot_tool_get_function_definitions (ChatbotTool *tool)
+ChatbotToolFunction **
+chatbot_tool_get_functions (ChatbotTool *tool)
 {
   ChatbotToolInterface *iface;
-
   g_return_val_if_fail (CHATBOT_IS_TOOL (tool), NULL);
   iface = CHATBOT_TOOL_GET_IFACE (tool);
-  g_return_val_if_fail (iface->get_function_definitions != NULL, NULL);
-  return iface->get_function_definitions (tool);
+  g_return_val_if_fail (iface->get_functions != NULL, NULL);
+  return iface->get_functions (tool);
 }
 
 /**
- * chatbot_tool_call_function:
- * @function_name: function name to call
- * @parameters: (nullable): call parameters
- * @language_model: (nullable): language model instance
- * @cancellable: (nullable): cancellable to cancel operation
- * @error: (nullable): pointer to the #GError* to store error
+ * chatbot_tool_call:
+ * @tool: self
+ * @name: function name to call.
+ * @args: arguments for function.
+ * @cancellable: #GCancellable to cancel operation.
+ * @error: (out) (nullable) (optional): Location to store the error.
  *
- * Call function
+ * Calls a function in the tool.
  *
- * The valid function and its parameters should be function definitions defined
- * at [property@ChatbotTool:functions]
+ * Type signature of @args and returned value must be `a{sv}`.
  *
- * @language_model can be used to make tool calling interactive. Though it
- * depends on the user of tools, so, if there is any interactive only tool, the
- * implementer should check valid @language_model is supplied before using it.
- *
- * Returns:Tuple of return values
+ * Returns: (transfer full): A %GVariant containing result.
  */
-GVariantDict *
-chatbot_tool_call_function (ChatbotTool *tool, const gchar *function_name,
-                            GVariantDict *parameters,
-                            ChatbotLanguageModel *language_model,
-                            GCancellable *cancellable, GError **error)
+GVariant *
+chatbot_tool_call (ChatbotTool *tool, const gchar *name, GVariant *args,
+                   GCancellable *cancellable, GError **error)
 {
   ChatbotToolInterface *iface;
 
   g_return_val_if_fail (CHATBOT_IS_TOOL (tool), NULL);
-  g_return_val_if_fail (function_name != NULL, NULL);
-  g_return_val_if_fail (parameters != NULL, NULL);
-  g_return_val_if_fail (CHATBOT_IS_LANGUAGE_MODEL (language_model)
-                            || (language_model == NULL),
+  g_return_val_if_fail (name != NULL, NULL);
+  g_return_val_if_fail ((args != NULL)
+                            && g_variant_type_equal (g_variant_get_type (args),
+                                                     G_VARIANT_TYPE_VARDICT),
                         NULL);
   g_return_val_if_fail (
-      G_IS_CANCELLABLE (cancellable) || (cancellable == NULL), NULL);
+      (cancellable == NULL) || G_IS_CANCELLABLE (cancellable), NULL);
   g_return_val_if_fail ((error == NULL) || (*error == NULL), NULL);
   iface = CHATBOT_TOOL_GET_IFACE (tool);
-  g_return_val_if_fail (iface->call_function != NULL, NULL);
-  return iface->call_function (tool, function_name, parameters, language_model,
-                               cancellable, error);
+  g_return_val_if_fail (iface->call != NULL, NULL);
+  return iface->call (tool, name, args, cancellable, error);
 }

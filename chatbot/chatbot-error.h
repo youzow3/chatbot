@@ -14,13 +14,22 @@
  */
 #pragma once
 
-#include <chatbot/chatbot-agent.h>
-#include <chatbot/chatbot-data.h>
-#include <chatbot/chatbot-error.h>
-#include <chatbot/chatbot-language-model.h>
-#include <chatbot/chatbot-message-array.h>
-#include <chatbot/chatbot-message-role.h>
-#include <chatbot/chatbot-message.h>
-#include <chatbot/chatbot-module.h>
-#include <chatbot/chatbot-text-plain.h>
-#include <chatbot/chatbot-trainer.h>
+#include <glib-object.h>
+
+G_BEGIN_DECLS
+
+#define CHATBOT_TYPE_ERROR chatbot_error_get_type ()
+GType chatbot_error_get_type (void) G_GNUC_CONST;
+
+#define CHATBOT_ERROR chatbot_error_quark ()
+GQuark chatbot_error_quark (void) G_GNUC_CONST;
+
+typedef enum _ChatbotError
+{
+  CHATBOT_ERROR_UNKNOWN,
+  CHATBOT_ERROR_NOT_FOUND,
+  CHATBOT_ERROR_MODULE,
+  CHATBOT_ERROR_INVALID,
+} ChatbotError;
+
+G_END_DECLS

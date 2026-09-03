@@ -17,6 +17,7 @@
 #include <gio/gio.h>
 #include <glib-object.h>
 
+#include "chatbot-message-array.h"
 #include "chatbot-module.h"
 
 G_BEGIN_DECLS
@@ -29,30 +30,58 @@ struct _ChatbotLanguageModelInterface
 {
   GTypeInterface iface;
 
-  gchar *(*apply_chat_template) (ChatbotLanguageModel *language_model,
-                                 const GStrv role_and_message);
-  gboolean (*prefill) (ChatbotLanguageModel *language_model, const gchar *text,
-                       GError **error);
-  gchar *(*generate) (ChatbotLanguageModel *language_model, GError **error);
+  ChatbotMessageArray *(*generate) (ChatbotLanguageModel *language_model,
+                                    ChatbotMessageArray *messages,
+                                    GCancellable *cancellable, GError **error);
   gboolean (*save_state) (ChatbotLanguageModel *language_model,
-                          const gchar *filename, GError **error);
+                          const gchar *filename, GCancellable *cancellable,
+                          GError **error);
   gboolean (*load_state) (ChatbotLanguageModel *language_model,
-                          const gchar *filename, GError **error);
+                          const gchar *filename, GCancellable *cancellable,
+                          GError **error);
+  void (*reset_state) (ChatbotLanguageModel *language_model);
+  ChatbotLanguageModel *(*fork) (ChatbotLanguageModel *language_model);
 };
 
 gpointer chatbot_language_model_new (GType type, const gchar *parameter,
                                      GError **error);
-gchar *chatbot_language_model_apply_chat_template (
-    ChatbotLanguageModel *language_model, const GStrv role_and_message);
-gboolean chatbot_language_model_prefill (ChatbotLanguageModel *language_model,
-                                         const gchar *text, GError **error);
-gchar *chatbot_language_model_generate (ChatbotLanguageModel *language_model,
-                                        GError **error);
+ChatbotMessageArray *
+chatbot_language_model_generate (ChatbotLanguageModel *language_model,
+                                 ChatbotMessageArray *messages,
+                                 GCancellable *cancellable, GError **error);
+void chatbot_language_model_generate_async (
+    ChatbotLanguageModel *language_model, ChatbotMessageArray *messages,
+    GCancellable *cancellable, GAsyncReadyCallback callback,
+    gpointer user_data);
+ChatbotMessageArray *
+chatbot_language_model_generate_finish (ChatbotLanguageModel *language_model,
+                                        GAsyncResult *result, GError **error);
 gboolean
 chatbot_language_model_save_state (ChatbotLanguageModel *language_model,
-                                   const gchar *filename, GError **error);
+                                   const gchar *filename,
+                                   GCancellable *cancellable, GError **error);
+void chatbot_language_model_save_state_async (
+    ChatbotLanguageModel *language_model, const gchar *filename,
+    GCancellable *cancellable, GAsyncReadyCallback callback,
+    gpointer user_data);
+gboolean
+chatbot_language_model_save_state_finish (ChatbotLanguageModel *language_model,
+                                          GAsyncResult *result,
+                                          GError **error);
 gboolean
 chatbot_language_model_load_state (ChatbotLanguageModel *language_model,
-                                   const gchar *filename, GError **error);
+                                   const gchar *filename,
+                                   GCancellable *cancellable, GError **error);
+void chatbot_language_model_load_state_async (
+    ChatbotLanguageModel *language_model, const gchar *filename,
+    GCancellable *cancellable, GAsyncReadyCallback callback,
+    gpointer user_data);
+gboolean
+chatbot_language_model_load_state_finish (ChatbotLanguageModel *language_model,
+                                          GAsyncResult *result,
+                                          GError **error);
+void chatbot_language_model_reset_state (ChatbotLanguageModel *language_model);
+ChatbotLanguageModel *
+chatbot_language_model_fork (ChatbotLanguageModel *language_model);
 
 G_END_DECLS

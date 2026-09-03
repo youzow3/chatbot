@@ -29,8 +29,8 @@ struct _ChatbotModuleClass
   const gchar *(*get_description) (ChatbotModule *module);
 };
 
-ChatbotModule *chatbot_module_new (GType type, const gchar *parameter,
-                                   GError **error);
+gpointer chatbot_module_new (GType type, const gchar *parameter,
+                             GError **error);
 const gchar *chatbot_module_get_name (ChatbotModule *module);
 const gchar *chatbot_module_get_description (ChatbotModule *module);
 GHashTable *chatbot_module_get_parameter (ChatbotModule *module);

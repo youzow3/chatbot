@@ -14,91 +14,87 @@
  */
 #pragma once
 
+#include <chatbot/chatbot-module.h>
 #include <gio/gio.h>
-#include <glib-object.h>
-
-#include "chatbot-language-model.h"
-#include "chatbot-module.h"
 
 G_BEGIN_DECLS
+
+/**
+ * ChatbotToolArg:
+ * @ref: The reference count or -1 if statically allocated.
+ * @name: Name of the argument.
+ * @signature: #GVariant type signature.
+ * @description: Description of the argument.
+ * @user: %TRUE if the argument is provided by/for user, not LM.
+ *
+ * Represents argument for function input or output.
+ *
+ * @signature can be any definite type include maybe type.
+ */
+typedef struct _ChatbotToolArg
+{
+  gint ref;
+  gchar *name;
+  gchar *signature;
+  gchar *description;
+  gboolean user;
+} ChatbotToolArg;
+
+void chatbot_tool_arg_ref (ChatbotToolArg *arg);
+void chatbot_tool_arg_unref (ChatbotToolArg *arg);
+
+/**
+ * ChatbotToolFunction:
+ * @ref: The reference count or -1 if statically allocated.
+ * @name: Name of the function.
+ * @title: (nullable): Human readable function name for display purposes.
+ * @description: Description of the argument.
+ * @inputs: (nullable) (array zero-terminated=1): input arguments or %NULL for
+ * no input arguments.
+ * @outputs: (nullable) (array zero-terminated=1): output arguments or %NULL
+ * for no output arguments.
+ *
+ * Represents function for tool calling.
+ */
+typedef struct _ChatbotToolFunction
+{
+  gint ref;
+  gchar *name;
+  gchar *title;
+  gchar *description;
+  ChatbotToolArg **inputs;
+  ChatbotToolArg **outputs;
+} ChatbotToolFunction;
+
+void chatbot_tool_function_ref (ChatbotToolFunction *func);
+void chatbot_tool_function_unref (ChatbotToolFunction *func);
 
 #define CHATBOT_TYPE_TOOL chatbot_tool_get_type ()
 G_DECLARE_INTERFACE (ChatbotTool, chatbot_tool, CHATBOT, TOOL, ChatbotModule);
 
-#define CHATBOT_TYPE_TOOL_ARG chatbot_tool_arg_get_type ()
-GType chatbot_tool_arg_get_type (void) G_GNUC_CONST;
-
-/**
- * ChatbotToolArg:
- * @name: arg name
- * @description: arg description
- * @type: GVariant type
- * @required: TRUE if the arg is required
- * @ref: -1 if the structure is statically defined
- *
- * Valid basic type of @type is "b", "x", "d", "s", and "a".
- */
-typedef struct _ChatbotToolArg
-{
-  gchar *name;
-  gchar *description;
-  gchar *type;
-  guint ref;
-} ChatbotToolArg;
-
-ChatbotToolArg *chatbot_tool_arg_new (const gchar *name,
-                                      const gchar *description,
-                                      const gchar *type);
-ChatbotToolArg *chatbot_tool_arg_ref (ChatbotToolArg *arg);
-void chatbot_tool_arg_unref (ChatbotToolArg *arg);
-
-#define CHATBOT_TYPE_TOOL_FUNCTION chatbot_tool_function_get_type ()
-GType chatbot_tool_function_get_type (void) G_GNUC_CONST;
-
-/**
- * ChatbotToolFunction:
- * @name: function name
- * @description: function description
- * @input_schemas: (array zero-terminated=1): input(s) information
- * @output_schemas: (array zero-terminated=1): output(s) information
- * @ref: -1 if the structure is statically defined
- */
-typedef struct _ChatbotToolFunction
-{
-  gchar *name;
-  gchar *description;
-  ChatbotToolArg **input_schemas;
-  ChatbotToolArg **output_schemas;
-  guint ref;
-} ChatbotToolFunction;
-
-ChatbotToolFunction *chatbot_tool_function_new (
-    const gchar *name, const gchar *description,
-    ChatbotToolArg **input_schemas, gsize input_schemas_len,
-    ChatbotToolArg **output_schemas, gsize output_schemas_len);
-ChatbotToolFunction *chatbot_tool_function_ref (ChatbotToolFunction *function);
-void chatbot_tool_function_unref (ChatbotToolFunction *function);
-
 struct _ChatbotToolInterface
 {
   GTypeInterface iface;
-  const ChatbotToolFunction *const *(*get_function_definitions) (
-      ChatbotTool *tool);
-  GVariantDict *(*call_function) (ChatbotTool *tool,
-                                  const gchar *function_name,
-                                  GVariantDict *parameters,
-                                  ChatbotLanguageModel *language_model,
-                                  GCancellable *cancellable, GError **error);
+  ChatbotToolFunction **(*get_functions) (ChatbotTool *tool);
+  /**
+   * ChatbotToolFunction.call:
+   * @tool: self
+   * @name: Function name
+   * @args: Arguments in `a{sv}` form.
+   * @cancellable: (nullable): %GCancellable to cancel operation
+   * @error: (out) (nullable) (optional): Location to store the error.
+   *
+   * Actual implementation for tool calling.
+   *
+   * Returns: (transfer none): Floating reference `a{sv}` %GVariant.
+   */
+  GVariant *(*call) (ChatbotTool *tool, const gchar *name, GVariant *args,
+                     GCancellable *cancellable, GError **error);
 };
 
-gpointer chatbot_tool_new (GType type);
-const ChatbotToolFunction *const *
-chatbot_tool_get_function_definitions (ChatbotTool *tool);
-GVariantDict *chatbot_tool_call_function (ChatbotTool *tool,
-                                          const gchar *function_name,
-                                          GVariantDict *parameters,
-                                          ChatbotLanguageModel *language_model,
-                                          GCancellable *cancellable,
-                                          GError **error);
+ChatbotToolFunction **chatbot_tool_get_functions (ChatbotTool *tool);
+GVariant *chatbot_tool_call (ChatbotTool *tool, const gchar *name,
+                             GVariant *args, GCancellable *cancellable,
+                             GError **error);
 
 G_END_DECLS
