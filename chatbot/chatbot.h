@@ -22,5 +22,7 @@
 #include <chatbot/chatbot-message-role.h>
 #include <chatbot/chatbot-message.h>
 #include <chatbot/chatbot-module.h>
+#include <chatbot/chatbot-multi-agent.h>
 #include <chatbot/chatbot-text-plain.h>
+#include <chatbot/chatbot-tool.h>
 #include <chatbot/chatbot-trainer.h>

@@ -294,7 +294,7 @@ chatbot_language_model_save_state_async (ChatbotLanguageModel *language_model,
  * @result: A #GAsyncResult.
  * @error: (out) (optional) (nullable): Location to store error.
  *
- * Finishes operation started with [method@Chatbot.LanguageModel.save_state].
+ * Finishes operation started with [method@Chatbot.LanguageModel.save_state_async].
  *
  * Returns: %TRUE if the state is saved successfully, and %FALSE if it is
  * failed.

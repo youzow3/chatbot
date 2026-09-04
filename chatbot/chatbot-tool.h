@@ -76,18 +76,6 @@ struct _ChatbotToolInterface
 {
   GTypeInterface iface;
   ChatbotToolFunction **(*get_functions) (ChatbotTool *tool);
-  /**
-   * ChatbotToolFunction.call:
-   * @tool: self
-   * @name: Function name
-   * @args: Arguments in `a{sv}` form.
-   * @cancellable: (nullable): %GCancellable to cancel operation
-   * @error: (out) (nullable) (optional): Location to store the error.
-   *
-   * Actual implementation for tool calling.
-   *
-   * Returns: (transfer none): Floating reference `a{sv}` %GVariant.
-   */
   GVariant *(*call) (ChatbotTool *tool, const gchar *name, GVariant *args,
                      GCancellable *cancellable, GError **error);
 };
@@ -96,5 +84,11 @@ ChatbotToolFunction **chatbot_tool_get_functions (ChatbotTool *tool);
 GVariant *chatbot_tool_call (ChatbotTool *tool, const gchar *name,
                              GVariant *args, GCancellable *cancellable,
                              GError **error);
+void chatbot_tool_call_async (ChatbotTool *tool, const gchar *name,
+                              GVariant *args, GCancellable *cancellable,
+                              GAsyncReadyCallback callback,
+                              gpointer user_data);
+GVariant *chatbot_tool_call_finish (ChatbotTool *tool, GAsyncResult *result,
+                                    GError **error);
 
 G_END_DECLS

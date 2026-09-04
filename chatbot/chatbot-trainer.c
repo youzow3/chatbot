@@ -183,7 +183,7 @@ chatbot_trainer_train_async (ChatbotTrainer *trainer,
  * @result: A #GAsyncResult.
  * @error: (out) (optional): Location to store runtime error.
  *
- * Finishes training started with [method@Chatbot.Trainer.train].
+ * Finishes training started with [method@Chatbot.Trainer.train_async].
  */
 gboolean
 chatbot_trainer_train_finish (ChatbotTrainer *trainer, GAsyncResult *result,
