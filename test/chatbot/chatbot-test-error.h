@@ -1,0 +1,36 @@
+/*   This file is part of Chatbot.
+ *
+ *  Chatbot is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free
+ * Software Foundation, either version 3 of the License, or any later version.
+ *
+ *  Chatbot is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ *  You should have received a copy of the GNU General Public License along
+ * with Chatbot. If not, see <https://www.gnu.org/licenses/>.
+ */
+#pragma once
+
+#include <chatbot/chatbot.h>
+
+G_BEGIN_DECLS
+
+#define CHATBOT_TEST_ERROR chatbot_test_error_quark ()
+GQuark chatbot_test_error_quark (void) G_GNUC_CONST;
+#define CHATBOT_TYPE_TEST_ERROR chatbot_test_error_get_type ()
+GType chatbot_test_error_get_type (void) G_GNUC_CONST;
+
+typedef enum _ChatbotTestError
+{
+  CHATBOT_TEST_ERROR_EXPECTED,
+  CHATBOT_TEST_ERROR_SWITCHED
+} ChatbotTestError;
+
+#define chatbot_test_set_switched_error(err, cond)                            \
+  g_set_error (err, CHATBOT_TEST_ERROR, CHATBOT_TEST_ERROR_SWITCHED,          \
+               "Switched error caused by %s", #cond)
+
+G_END_DECLS
