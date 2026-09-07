@@ -209,7 +209,6 @@ chatbot_message_array_copy (ChatbotMessageArray *message_array)
   g_return_val_if_fail (message_array != NULL, NULL);
 
   copy = g_new (ChatbotMessageArray, 1);
-  copy->fifo = g_queue_new ();
   copy->fifo = g_queue_copy (message_array->fifo);
   g_queue_foreach (copy->fifo, _fifo_ref, NULL);
   return copy;

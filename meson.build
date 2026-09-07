@@ -4,7 +4,6 @@ gnome = import('gnome')
 
 glib_dep = dependency('glib-2.0')
 gobject_dep = dependency('gobject-2.0')
-gmodule_dep = dependency('gmodule-2.0')
 gio_dep = dependency('gio-2.0')
 json_glib_dep = dependency('json-glib-1.0')
 
@@ -82,4 +81,5 @@ chatbot_dep = declare_dependency(
     dependencies: [gobject_dep, gio_dep, json_glib_dep],
 )
 
+subdir('cli')
 subdir('test')

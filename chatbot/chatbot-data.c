@@ -46,6 +46,7 @@ _register_builtin_types (void)
 static void
 chatbot_data_default_init (ChatbotDataInterface *iface)
 {
+  _register_builtin_types ();
 }
 
 static guint
