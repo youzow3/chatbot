@@ -19,7 +19,7 @@
 #include <gio/gio.h>
 #include <gmodule.h>
 
-#include "chatbot.h"
+#include <chatbot/chatbot.h>
 
 typedef struct
 {
@@ -110,9 +110,20 @@ static const GOptionEntry option_entries[N_ARGS] = {
 };
 
 static void
-generating (ChatbotLanguageModel *lm, const gchar *text, gpointer user_data)
+generating (ChatbotLanguageModel *lm, ChatbotMessage *message,
+            gpointer user_data)
 {
-  printf ("%s", text);
+  ChatbotData *data;
+
+  g_return_if_fail (CHATBOT_IS_MESSAGE (message));
+  data = chatbot_message_get_data (message);
+
+  if (chatbot_message_get_role (message) != CHATBOT_MESSAGE_ROLE_ASSISTANT)
+    return;
+  if (!CHATBOT_IS_TEXT_PLAIN (data))
+    return;
+
+  printf ("%s", chatbot_text_plain_get_text (CHATBOT_TEXT_PLAIN (data)));
   fflush (stdout);
 }
 
@@ -167,7 +178,8 @@ main (int argc, char **argv)
   g_array_set_clear_func (modules, (GDestroyNotify)module_free);
 
   for (gchar **module_path = module_paths, **parameter = module_parameters;
-       *module_path && *parameter; module_path++, parameter++)
+       (module_path && parameter) && (*module_path && *parameter);
+       module_path++, parameter++)
     {
       Module module;
 
@@ -220,8 +232,7 @@ main (int argc, char **argv)
       goto cleanup;
     }
 
-  for (guint i = 0; CHATBOT_IS_TOOL_CALLABLE_LANGUAGE_MODEL (language_model)
-                    && (i < modules->len);
+  for (guint i = 0; CHATBOT_IS_AGENT (language_model) && (i < modules->len);
        i++)
     {
       Module module;
@@ -229,23 +240,26 @@ main (int argc, char **argv)
       module = g_array_index (modules, Module, i);
       if (!CHATBOT_IS_TOOL (module.module))
         continue;
-      if (!chatbot_tool_callable_language_model_add_tool (
-              CHATBOT_TOOL_CALLABLE_LANGUAGE_MODEL (language_model),
-              CHATBOT_TOOL (module.module), &error))
+      if (!chatbot_agent_add_tool (CHATBOT_AGENT (language_model),
+                                   CHATBOT_TOOL (module.module), &error))
         goto cleanup;
     }
 
   if (state_file)
     {
-      state_loaded = chatbot_language_model_load_state (language_model,
-                                                        state_file, NULL);
+      state_loaded = chatbot_language_model_load_state (
+          language_model, state_file, NULL, NULL);
       if (!state_loaded)
         fprintf (stderr, "State file is specified, but failed to load. "
                          "Continuing with default state.\n");
     }
 
-  g_signal_connect (language_model, "generating", G_CALLBACK (generating),
-                    NULL);
+  if (CHATBOT_IS_AGENT (language_model))
+    g_signal_connect (CHATBOT_AGENT (language_model), "generating",
+                      G_CALLBACK (generating), NULL);
+  else
+    g_signal_connect (CHATBOT_LANGUAGE_MODEL (language_model), "generating",
+                      G_CALLBACK (generating), NULL);
 
   if (system_prompt_file)
     {
@@ -258,23 +272,15 @@ main (int argc, char **argv)
   if (system_prompt && !state_loaded)
     pending_system_prompt = g_strdup (system_prompt);
 
-  chat_data = chatbot_message_array_new();
+  chat_data = chatbot_message_array_new ();
 
   // Main Loop
   while (TRUE)
     {
-      GStrv role_and_messages = NULL;
-      gchar *chat_template = NULL;
-      gchar *generated = NULL;
+      ChatbotTextPlain *text;
       ChatbotMessage *user_message;
-      ChatbotMessageArray *messages;
-
-      if (pending_system_prompt)
-        {
-		ChatbotMessage *system_message = chatbot_message_new_take(CHATBOT_MESSAGE_ROLE_SYSTEM, chatbot_text_data_new(pending_system_prompt));
-		chatbot_message_array_push(messages, system_message);
-		chatbot_message_array_push_take(messages, system_message);
-        }
+      ChatbotMessageArray *messages = NULL;
+      ChatbotMessageArray *generated = NULL;
 
       printf ("User: ");
       fflush (stdout);
@@ -290,7 +296,21 @@ main (int argc, char **argv)
             }
         }
 
-      user_message = chatbot_message_new_take(CHATBOT_MESSAGE_ROLE_USER, chatbot_text_data_new(pending_user_prompt));
+      messages = chatbot_message_array_new ();
+      if (pending_system_prompt)
+        {
+          text = chatbot_text_plain_new (pending_system_prompt);
+          ChatbotMessage *system_message = chatbot_message_new (
+              CHATBOT_MESSAGE_ROLE_SYSTEM, CHATBOT_DATA (text));
+          chatbot_message_array_push_take (messages, system_message);
+          g_object_unref (text);
+        }
+
+      text = chatbot_text_plain_new (pending_user_prompt);
+      user_message = chatbot_message_new (CHATBOT_MESSAGE_ROLE_USER,
+                                          CHATBOT_DATA (text));
+      g_object_unref (text);
+      chatbot_message_array_push_take (messages, user_message);
 
       printf ("Assistant: ");
       fflush (stdout);
@@ -298,22 +318,23 @@ main (int argc, char **argv)
                                                    NULL, &error);
       if (generated == NULL)
         goto loop_cleanup;
-      chatbot_message_array_add(chat_data, chatbot_message_new_take(CHATBOT_MESSAGE_ROLE_ASSISTANT, chatbot_text_data_new(generated)));
+      for (ChatbotMessage *msg;
+           (msg = chatbot_message_array_pop (generated)) != NULL;)
+        chatbot_message_array_push_take (chat_data, msg);
       printf ("\n");
 
     loop_cleanup:
-      g_free (generated);
+      chatbot_message_array_free (generated);
+      chatbot_message_array_free (messages);
       g_free (pending_user_prompt);
       g_clear_pointer (&pending_system_prompt, g_free);
-      g_strfreev (role_and_messages);
-      g_free (chat_template);
 
       if (error)
         goto cleanup;
     }
 
   if (state_file
-      && !chatbot_language_model_save_state (language_model, state_file,
+      && !chatbot_language_model_save_state (language_model, state_file, NULL,
                                              &error))
     goto cleanup;
 
@@ -341,16 +362,16 @@ main (int argc, char **argv)
           g_object_ref (trainer);
         }
 
-      if (!chatbot_trainer_train (
-              trainer, (ChatbotMessageArray *[]){ chat_data }, 1, NULL,
-              &error))
+      if (!chatbot_trainer_train (trainer,
+                                  (ChatbotMessageArray *[]){ chat_data }, 1,
+                                  NULL, &error))
         goto cleanup;
     }
 
   ret_code = 0;
 cleanup:
   g_clear_object (&trainer);
-  g_clear_pointer(&chat_data, chatbot_message_array_free);
+  g_clear_pointer (&chat_data, chatbot_message_array_free);
   g_clear_object (&language_model);
   g_clear_pointer (&modules, g_array_unref);
   g_clear_pointer (&option_context, g_option_context_free);
